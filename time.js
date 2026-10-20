@@ -39,7 +39,14 @@
   function time(ms,zone,h24=false) { return fmt(zone,{hour:'numeric',minute:'2-digit',hourCycle:h24?'h23':'h12'}).format(ms).replace(':00','').replace(/AM/g,'am').replace(/PM/g,'pm'); }
   function clock(ms,zone,h24=false) { if(h24) return fmt(zone,{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(ms); return time(ms,zone); }
   function dateLabel(ms,zone) { return fmt(zone,{weekday:'long',month:'long',day:'numeric',year:'numeric'}).format(ms); }
-  function zoneName(ms,zone) { return fmt(zone,{timeZoneName:'long'}).formatToParts(ms).find(p=>p.type==='timeZoneName').value; }
+  function zoneName(ms,zone) {
+    const name=fmt(zone,{timeZoneName:'long'}).formatToParts(ms).find(p=>p.type==='timeZoneName').value;
+    // Some browsers return a numeric GMT label for London even with long names requested.
+    if(['Europe/London','Europe/Belfast','GB','GB-Eire'].includes(zone)&&/^(GMT|UTC)(?:[+−-].*)?$/.test(name)){
+      const n=offset(ms,zone);if(n===0)return 'Greenwich Mean Time';if(n===60)return 'British Summer Time';
+    }
+    return name;
+  }
   function offsetLabel(ms,zone) { const n=offset(ms,zone), abs=Math.abs(n); return `UTC${n<0?'−':'+'}${String(Math.floor(abs/60)).padStart(2,'0')}:${String(Math.round(abs%60)).padStart(2,'0')}`; }
   function zoneLabel(ms,zone) { return `${zoneName(ms,zone)}, ${offsetLabel(ms,zone)}`; }
   function gridRectangle(start,end){
@@ -90,23 +97,17 @@
   function describe(intervals,zone,{h24=false,list=false}={}) {
     if(!intervals.length) return '';
     const endpoints=intervals.flatMap(r=>[r.start,r.end]);
-    const names=[...new Set(endpoints.map(ms=>zoneName(ms,zone)))];
     const years=[...new Set(endpoints.map(ms=>parts(ms,zone).year))];
-    const offsetsUsed=new Set(endpoints.map(ms=>offset(ms,zone)));
-    const changingOffset=offsetsUsed.size>1;
+    const nameOffsets=new Map();
+    for(const ms of endpoints){const name=zoneName(ms,zone);if(!nameOffsets.has(name))nameOffsets.set(name,new Set());nameOffsets.get(name).add(offset(ms,zone));}
+    // Keep full names concise, adding an offset only when the same name is ambiguous.
+    const zoneText=ms=>{const name=zoneName(ms,zone);return nameOffsets.get(name).size>1?zoneLabel(ms,zone):name;};
     const months=['Jan.','Feb.','Mar.','Apr.','May','June','July','Aug.','Sept.','Oct.','Nov.','Dec.'];
     const shortDate=(ms,weekday=false)=>{
       const p=parts(ms,zone);
       return `${weekday?fmt(zone,{weekday:'long'}).format(ms)+' ':''}${months[p.month-1]} ${p.day}${years.length>1?', '+p.year:''}`;
     };
-    const shortClock=ms=>{
-      const value=clock(ms,zone,h24).replace(/\s/g,'');
-      if(!changingOffset)return value;
-      const abbreviation=fmt(zone,{timeZoneName:'short'}).formatToParts(ms).find(p=>p.type==='timeZoneName').value;
-      // Offset labels distinguish repeated hours when a browser supplies the same abbreviation.
-      const distinctShortNames=new Set(endpoints.map(t=>fmt(zone,{timeZoneName:'short'}).formatToParts(t).find(p=>p.type==='timeZoneName').value));
-      return `${value} ${distinctShortNames.size>1?abbreviation:offsetLabel(ms,zone)}`;
-    };
+    const shortClock=ms=>clock(ms,zone,h24).replace(/\s/g,'');
     const groups=[];
     for(const {start,end} of intervals) {
       const sameDay=dateKey(start,zone)===dateKey(end,zone), sameZone=zoneLabel(start,zone)===zoneLabel(end,zone);
@@ -114,14 +115,19 @@
         const key=dateKey(start,zone)+zoneLabel(start,zone), previous=groups.at(-1);
         const range=`${shortClock(start)} to ${shortClock(end)}`;
         if(previous && previous.key===key) previous.ranges.push(range);
-        else groups.push({key,label:shortDate(start,true),ranges:[range]});
+        else groups.push({key,start,end,label:shortDate(start,true),ranges:[range]});
       } else {
-        const a=`${shortDate(start,true)}, ${shortClock(start)}`,b=`${sameDay?'':shortDate(end)+', '}${shortClock(end)}`;
+        const a=`${shortDate(start,true)}, ${shortClock(start)}`,b=`${sameZone?'':'('+zoneText(end)+') '}${sameDay?'':shortDate(end)+', '}${shortClock(end)}`;
         const text=`${a} to ${b}`;
-        groups.push({text});
+        groups.push({start,end,text});
       }
     }
-    const clauses=groups.map((g,i)=>`your ${i===0?'('+names.join(' / ')+') ':''}${g.text || `${g.label}, ${g.ranges.join(' or ')}`}`);
+    let previousZone=null;
+    const clauses=groups.map(g=>{
+      const currentZone=zoneLabel(g.start,zone),label=currentZone!==previousZone?'('+zoneText(g.start)+') ':'';
+      previousZone=zoneLabel(g.end,zone);
+      return `your ${label}${g.text || `${g.label}, ${g.ranges.join(' or ')}`}`;
+    });
     const yearSuffix=years.length===1?` [${years[0]}]`:'';
     return (list?clauses.map(s=>'• '+s).join('\n'):clauses.join('; or '))+yearSuffix;
   }
