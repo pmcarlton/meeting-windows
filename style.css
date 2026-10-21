@@ -43,4 +43,4 @@ body{min-width:1100px}main{max-width:1440px;padding:24px 32px 20px}.app-header{m
 .zone-card.source .step{border-color:#d5a47d}
 .zone-card.source .zone-picker input{border-bottom-color:#e4bd9d}
 .zone-card.source .zone-detail{color:#865f45}
-.calendar .corner,.calendar .hour-label{color:#965126;background:#fff8f1;border-right:1px solid #e4bd9d}
+.calendar .corner,.calendar .hour-label{color:#965126;border-right:1px solid #e4bd9d}
