@@ -34,8 +34,8 @@
   projectionMode.onchange=()=>{UI.state.mapProjection=projectionMode.value;UI.save();clearHover();focus.enable(projectionMode.value==='focus');if(!focus.active){setZoom(zoom);redraw();panTo(field,'instant');}};
   const safeZone=z=>{try{T.offset(Date.now(),z);return true;}catch{return false;}};
   const regions=MapData.regions.filter(r=>safeZone(r[0]));
-  const background=el('rect',{width:1440,height:240,fill:'#deebeb'});wrap(background);
-  wrap(shape({d:MapData.land,fill:'#fffef2',stroke:'#8ca39d','stroke-width':.5}));
+  const background=el('rect',{width:1440,height:240,fill:'#e5e9ef'});wrap(background);
+  wrap(shape({d:MapData.land,fill:'#f9f8f5',stroke:'#a0a8b1','stroke-width':.5}));
   const regionLayer=el('g',{'class':'map-regions'});
   const hoverGroups=new WeakMap();let hoveredRegions=null;
   // One hover state owns both the original geometry and its wrapped copies.
@@ -48,16 +48,16 @@
   }
   const clearHover=()=>setHover();
   const regionPaths=regions.flatMap(([zone,path])=>{
-    const offset=T.offset(Date.now(),zone),hue=180+offset/20;
-    const e=shape({d:path,fill:`hsl(${hue} 32% 60%)`,'fill-opacity':.32,'fill-rule':'evenodd',stroke:'#638e88','stroke-opacity':.55,'stroke-width':.55,'data-zone':zone,'class':'map-region'},regionLayer);
+    const offset=T.offset(Date.now(),zone),hue=220+offset/40;
+    const e=shape({d:path,fill:`hsl(${hue} 32% 60%)`,'fill-opacity':.32,'fill-rule':'evenodd',stroke:'#8592a3','stroke-opacity':.55,'stroke-width':.55,'data-zone':zone,'class':'map-region'},regionLayer);
     el('title',{},e).textContent=`${zone} · ${T.zoneLabel(Date.now(),zone)}`;
     function bind(node){node.dataset.zone=zone;node.classList.add('map-region');node.addEventListener('click',event=>{event.stopPropagation();select({zone,label:UI.city(zone)});});}
     bind(e);const group=[e,...wrap(e,bind)];group.forEach(node=>hoverGroups.set(node,group));return group;
   });
   const grid=el('g',{'pointer-events':'none'});
-  for(let lon=-180;lon<180;lon+=30){const x=project(0,lon)[0];el('line',{x1:x,y1:15,x2:x,y2:239,stroke:'#446d67','stroke-opacity':.16,'stroke-dasharray':'2 5'},grid);const label=el('text',{x:x+6,y:14,'class':'longitude'},grid);label.textContent=lon===0?'0°':Math.abs(lon)+'°'+(lon<0?'W':'E');}
+  for(let lon=-180;lon<180;lon+=30){const x=project(0,lon)[0];el('line',{x1:x,y1:15,x2:x,y2:239,stroke:'#64748b','stroke-opacity':.16,'stroke-dasharray':'2 5'},grid);const label=el('text',{x:x+6,y:14,'class':'longitude'},grid);label.textContent=lon===0?'0°':Math.abs(lon)+'°'+(lon<0?'W':'E');}
   wrap(grid);
-  wrap(shape({d:MapData.land,fill:'none',stroke:'#345e57','stroke-opacity':.6,'stroke-width':.7,'pointer-events':'none'}));
+  wrap(shape({d:MapData.land,fill:'none',stroke:'#596675','stroke-opacity':.6,'stroke-width':.7,'pointer-events':'none'}));
   const labels=el('g',{'pointer-events':'none','class':'continent-labels'});
   [['NORTH AMERICA',48,-110],['SOUTH AMERICA',-18,-60],['EUROPE',57,15],['AFRICA',4,18],['ASIA',50,92],['AUSTRALIA',-25,135]].forEach(([text,lat,lon])=>{const [x,y]=project(lat,lon);el('text',{x,y,'data-lat':lat,'data-lon':lon,'text-anchor':'middle'},labels).textContent=text;});
   wrap(labels);
@@ -91,7 +91,11 @@
   for(const f of ['source','target']){const c=UI.state[f+'City'];if(c)selectedPoints[f]=[c.lat,c.lon];}
   const getCityPoint=f=>selectedPoints[f]||null;
   function alignment(){return MeetingFocusProjection.alignment(getCityPoint('source'),getCityPoint('target'));}
-  function updateAlignmentButton(){const result=alignment();$('map-align').disabled=!result.available;$('map-align').title=result.available?'Center the shorter city-to-city arc horizontally in Viewport focus.':result.reason;}
+  function updateAlignmentButton(){
+    const result=alignment();$('map-align').disabled=!result.available;$('map-align').title=result.available?'Center the shorter city-to-city arc horizontally in Viewport focus.':result.reason;
+    const frame=MeetingFocusProjection.framing(getCityPoint('source'),getCityPoint('target'),scroll.clientWidth,scroll.clientHeight);
+    $('map-frame').disabled=!frame.available;$('map-frame').title=frame.available?'Fit both cities and their labels, centered on their longitude midpoint, with north vertical.':frame.reason;
+  }
   function getPoint(f){return selectedPoints[f]||knownPoints[UI.canonical(UI.state[f])];}
   function redraw(){
     regionPaths.forEach(e=>{const z=UI.canonical(e.dataset.zone);e.classList.toggle('is-source',z===UI.canonical(UI.state.source));e.classList.toggle('is-target',z===UI.canonical(UI.state.target));});
@@ -186,7 +190,9 @@
   focus=createFocusMap({scroll,legacySvg:svg,getPoint,getField:()=>field,choose:select});
   focus.enable(projectionMode.value==='focus');
   updateAlignmentButton();
-  $('map-align').onclick=()=>{const result=alignment();if(!result.available)return;if(!focus.active){projectionMode.value='focus';UI.state.mapProjection='focus';UI.save();clearHover();focus.enable(true);}focus.alignCities(result);};
+  function enableFocus(){if(!focus.active){projectionMode.value='focus';UI.state.mapProjection='focus';UI.save();clearHover();focus.enable(true);}}
+  $('map-align').onclick=()=>{const result=alignment();if(!result.available)return;enableFocus();focus.alignCities(result);};
+  $('map-frame').onclick=()=>{if($('map-frame').disabled)return;enableFocus();focus.frameCities();};
   if(new URLSearchParams(location.search).has('profile')){
     const panel=document.createElement('details');panel.className='projection-profile';panel.open=true;
     panel.innerHTML='<summary>Projection profiling</summary><button id="profile-zoom">Run zoom comparison</button><pre id="profile-result" role="status">Ready</pre>';

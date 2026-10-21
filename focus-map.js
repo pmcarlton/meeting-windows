@@ -3,25 +3,26 @@
   root.createFocusMap=function({scroll,legacySvg,getPoint,getField,choose}){
     const $=id=>document.getElementById(id),UI=MeetingUI,P=MeetingFocusProjection,T=MeetingTime,ns='http://www.w3.org/2000/svg';
     let active=false,zoom=1,minimumZoom=1,center={lon:getPoint('target')?.[1]||0,lat:0},width=scroll.clientWidth,height=scroll.clientHeight,frame=0,hovered=null,savedScroll=null;
-    let projection=null,path=null,features=null,land=null,groups=[],cityNodes=[],selectionNodes=[],lastRenderMs=0,prepareMs=0,pending=null,lastPeriod=-1,lastZones='';
+    let projection=null,mutateProjection=null,projectionKey='',northUp=false,framed=false,path=null,features=null,land=null,groups=[],cityNodes=[],selectionNodes=[],lastRenderMs=0,prepareMs=0,pending=null,lastPeriod=-1,lastZones='';
+    const labelWidths=new Map();
     const svg=document.createElementNS(ns,'svg');svg.id='focus-map';svg.setAttribute('role','img');svg.setAttribute('aria-label','Viewport-centered world timezones. The center line has undistorted local scale.');svg.style.display='none';scroll.append(svg);
     function el(name,attrs={},parent=svg){const e=document.createElementNS(ns,name);for(const [key,value] of Object.entries(attrs))e.setAttribute(key,value);parent.append(e);return e;}
     const centerLabel=document.createElement('span');centerLabel.className='map-center-label';centerLabel.hidden=true;$('map-hint').parentElement.append(centerLabel);
-    const background=el('rect',{fill:'#deebeb'}),geoLayer=el('g'),gridLayer=el('g',{'pointer-events':'none'}),coastLayer=el('g',{'pointer-events':'none'}),pinLayer=el('g'),selectedLayer=el('g',{'pointer-events':'none'});
-    const crosshair=el('path',{d:'M-5,0H5M0,-5V5',stroke:'#183c35','stroke-opacity':.35,'pointer-events':'none',fill:'none'});
+    const background=el('rect',{fill:'#e5e9ef'}),geoLayer=el('g'),gridLayer=el('g',{'pointer-events':'none'}),coastLayer=el('g',{'pointer-events':'none'}),pinLayer=el('g'),selectedLayer=el('g',{'pointer-events':'none'});
+    const crosshair=el('path',{d:'M-5,0H5M0,-5V5',stroke:'#283341','stroke-opacity':.35,'pointer-events':'none',fill:'none'});
     const graticule={type:'MultiLineString',coordinates:[]};
     for(let lon=-180;lon<180;lon+=30)graticule.coordinates.push(Array.from({length:91},(_,i)=>[lon,-90+i*2]));
     for(let lat=-60;lat<=60;lat+=30)graticule.coordinates.push(Array.from({length:181},(_,i)=>[-180+i*2,lat]));
-    const grid=el('path',{fill:'none',stroke:'#446d67','stroke-opacity':.18,'stroke-width':.6},gridLayer);
-    const landFill=el('path',{fill:'#fffef2',stroke:'#8ca39d','stroke-width':.5},geoLayer),coast=el('path',{fill:'none',stroke:'#345e57','stroke-opacity':.6,'stroke-width':.7},coastLayer);
+    const grid=el('path',{fill:'none',stroke:'#64748b','stroke-opacity':.18,'stroke-width':.6},gridLayer);
+    const landFill=el('path',{fill:'#f9f8f5',stroke:'#a0a8b1','stroke-width':.5},geoLayer),coast=el('path',{fill:'none',stroke:'#596675','stroke-opacity':.6,'stroke-width':.7},coastLayer);
     function prepare(){
       if(projection)return;
-      const start=performance.now();projection=d3.geoProjection(P.raw).precision(.4);path=d3.geoPath(projection).digits(1);
+      const start=performance.now();mutateProjection=d3.geoProjectionMutator((latitude,cylindrical)=>cylindrical?P.northUpRaw(latitude):P.raw);projection=mutateProjection(0,false).precision(.4);path=d3.geoPath(projection).digits(1);
       land=P.decode(MapData.land,d3);
       features=MapData.regions.filter(([zone])=>{try{T.offset(Date.now(),zone);return true;}catch{return false;}}).map(([zone,data])=>({zone,geometry:P.decode(data,d3)}));
       features.forEach(feature=>{
-        const offset=T.offset(Date.now(),feature.zone),hue=180+offset/20;
-        const node=el('path',{fill:`hsl(${hue} 32% 60%)`,'fill-opacity':.32,'fill-rule':'evenodd',stroke:'#638e88','stroke-opacity':.55,'stroke-width':.55,'data-zone':feature.zone,'class':'map-region'},geoLayer);
+        const offset=T.offset(Date.now(),feature.zone),hue=220+offset/40;
+        const node=el('path',{fill:`hsl(${hue} 32% 60%)`,'fill-opacity':.32,'fill-rule':'evenodd',stroke:'#8592a3','stroke-opacity':.55,'stroke-width':.55,'data-zone':feature.zone,'class':'map-region'},geoLayer);
         el('title',{},node).textContent=`${feature.zone} · ${T.zoneLabel(Date.now(),feature.zone)}`;
         node.id='focus-zone-'+groups.length;
         const nodes=[node,...[-1,1].map(copy=>el('use',{href:'#'+node.id,'data-zone':feature.zone,'class':'map-region','aria-hidden':'true','data-copy':copy},geoLayer))];groups.push({...feature,node,nodes});
@@ -44,7 +45,13 @@
       }
     }
     function clearHover(){if(hovered)hovered.nodes.forEach(node=>node.classList.remove('is-hover'));hovered=null;}
-    function configure(){P.camera(projection,center,zoom,width,height).clipExtent([[-1440*zoom,-4],[width+1440*zoom,height+4]]);}
+    function configure(){
+      const key=northUp?'north-up:'+center.lat:'focus';
+      if(key!==projectionKey){mutateProjection(center.lat,northUp);projectionKey=key;}
+      if(northUp)projection.rotate([-center.lon,0,0]).center([0,center.lat]).scale(P.RADIUS*zoom).translate([width/2,height/2]);
+      else P.camera(projection.center([0,0]),center,zoom,width,height);
+      projection.clipExtent([[-1440*zoom,-4],[width+1440*zoom,height+4]]);
+    }
     function wrapX(x){const period=1440*zoom;return width/2+P.wrap((x-width/2)/period*360)/360*period;}
     function position(lat,lon){const p=projection([lon,lat]);p[0]=wrapX(p[0]);return p;}
     function render(){
@@ -53,13 +60,22 @@
       for(const feature of groups)feature.node.setAttribute('d',path(feature.geometry)||'');
       const zoneKey=UI.state.source+'|'+UI.state.target;if(zoneKey!==lastZones){lastZones=zoneKey;const source=UI.canonical(UI.state.source),target=UI.canonical(UI.state.target);for(const feature of groups){const canonical=UI.canonical(feature.zone);feature.nodes.forEach(node=>{node.classList.toggle('is-source',canonical===source);node.classList.toggle('is-target',canonical===target);});}}
       grid.setAttribute('d',path(graticule)||'');
-      for(const {entry,g} of cityNodes){const [x,y]=position(entry.lat,entry.lon);g.setAttribute('transform',`translate(${x} ${y})`);}
+      for(const {entry,g} of cityNodes){const [x,y]=position(entry.lat,entry.lon);g.setAttribute('transform',`translate(${x} ${y})`);g.querySelector('text').style.display=northUp&&['source','target'].some(f=>{const p=getPoint(f);return UI.state[f+'City']&&p&&Math.abs(p[0]-entry.lat)+Math.abs(p[1]-entry.lon)<1e-6;})?'none':'';}
       if(lastPeriod!==1440*zoom){lastPeriod=1440*zoom;svg.querySelectorAll('[data-copy]').forEach(node=>node.setAttribute('x',Number(node.dataset.copy)*lastPeriod));}
       selectedLayer.replaceChildren();selectionNodes=[];
       for(const field of ['source','target']){
         const point=getPoint(field),badge=$(field+'-map-badge');if(!point){badge.hidden=true;continue;}
         const [x,y]=position(...point),g=el('g',{transform:`translate(${x} ${y})`,'class':field==='source'?'selected-me':'selected-them','data-field':field},selectedLayer);
         el('circle',{r:7,'fill-opacity':.22},g);el('circle',{r:4,stroke:'#fff','stroke-width':1.5},g);
+        if(northUp&&UI.state[field+'City']&&x>=0&&x<=width&&y>=0&&y<=height){
+          const other=getPoint(field==='source'?'target':'source');
+          const above=!other||point[0]>other[0]||(point[0]===other[0]&&field==='source');
+          const label=el('text',{y:above?-12:20,'class':'pin-label selected-city-label'},g);label.textContent=UI.state[field+'City'].label;
+          if(!labelWidths.has(label.textContent))labelWidths.set(label.textContent,label.getComputedTextLength());
+          const measuredWidth=labelWidths.get(label.textContent),labelWidth=Math.min(measuredWidth,width-16);
+          if(measuredWidth>width-16){label.setAttribute('textLength',width-16);label.setAttribute('lengthAdjust','spacingAndGlyphs');}
+          label.setAttribute('x',P.clamp(x>width/2?-10-labelWidth:10,8-x,width-8-x-labelWidth));
+        }
         const positions=[x-1440*zoom,x,x+1440*zoom].filter(v=>v>=0&&v<=width);badge.hidden=!positions.length||y<0||y>height;
         if(positions.length)badge.style.left=P.clamp(positions[0],23,width-23)+'px';badge.title=`${field==='source'?'My':'Their'} timezone: ${UI.state[field]}`;
         selectionNodes.push(g);
@@ -69,23 +85,29 @@
       $('map-zoom-level').textContent=Math.round(zoom*100)+'%';$('map-zoom-in').disabled=zoom>=4;$('map-zoom-out').disabled=zoom<=minimumZoom+1e-9;
       svg.dataset.centerLatitude=center.lat.toFixed(6);svg.dataset.centerLongitude=center.lon.toFixed(6);svg.dataset.zoom=zoom.toFixed(6);
       svg.dataset.roll=(center.roll||0).toFixed(6);
+      svg.dataset.orientation=northUp?'north-up':'viewport-focus';
       svg.dataset.centerScale=(P.RADIUS*zoom).toFixed(4);
-      const latitude=Math.abs(center.lat).toFixed(1)+(center.lat<0?'°S':'°N');centerLabel.textContent=`Center: ${latitude} · ${Math.abs(center.lon).toFixed(1)}${center.lon<0?'°W':'°E'}${Math.abs(center.roll||0)>.01?' · rotated':''}`;svg.setAttribute('aria-label',`Viewport-centered world timezones. Center latitude ${latitude}. Drag in any direction; both poles can be centered.`);
+      const latitude=Math.abs(center.lat).toFixed(1)+(center.lat<0?'°S':'°N');centerLabel.textContent=`Center: ${latitude} · ${Math.abs(center.lon).toFixed(1)}${center.lon<0?'°W':'°E'}${northUp?' · north-up':Math.abs(center.roll||0)>.01?' · rotated':''}`;svg.setAttribute('aria-label',`World timezones${northUp?', north-up':''}. Center latitude ${latitude}. Drag in any direction; both poles can be centered.`);
       lastRenderMs=performance.now()-start;
     }
     function schedule(){if(!frame)frame=requestAnimationFrame(()=>{frame=0;if(pending){const work=pending;pending=null;work();}render();});}
     function localAt(p,z=zoom){return P.raw.invert((p.x-width/2)/(P.RADIUS*z),-(p.y-height/2)/(P.RADIUS*z));}
-    function geoAt(p){configure();const raw=localAt(p);return d3.geoRotation([-center.lon,-center.lat,center.roll||0]).invert(raw.map(v=>v/P.DEG));}
-    function anchored(point,p,z){const local=d3.geoRotation([0,0,center.roll||0]).invert(localAt(p,z).map(v=>v/P.DEG)).map(v=>v*P.DEG),next=P.anchored(center,point,local);if(next)center={lon:next.lon,lat:next.lat,roll:center.roll||0};}
+    function geoAt(p){configure();return projection.invert([p.x,p.y]);}
+    function anchored(point,p,z){
+      framed=false;
+      if(northUp){const local=P.northUpRaw(0).invert((p.x-width/2)/(P.RADIUS*z),-(p.y-height/2)/(P.RADIUS*z));center={lon:P.wrap(point[0]-local[0]/P.DEG),lat:P.clamp(point[1]-local[1]/P.DEG,-90,90),roll:0};return;}
+      const local=d3.geoRotation([0,0,center.roll||0]).invert(localAt(p,z).map(v=>v/P.DEG)).map(v=>v*P.DEG),next=P.anchored(center,point,local);if(next)center={lon:next.lon,lat:next.lat,roll:center.roll||0};
+    }
     function cancelPending(){if(frame)cancelAnimationFrame(frame);frame=0;pending=null;}
-    function setZoom(value,p,anchor){cancelPending();if(!active)return;if(!p)p={x:width/2,y:height/2};const geographic=anchor||geoAt(p);zoom=P.clamp(value,minimumZoom,4);anchored(geographic,p,zoom);render();}
+    function setZoom(value,p,anchor){cancelPending();if(!active)return;framed=false;if(!p)p={x:width/2,y:height/2};const geographic=anchor||geoAt(p);zoom=P.clamp(value,minimumZoom,4);anchored(geographic,p,zoom);render();}
     function panPixels(dx,dy){
+      framed=false;
       const roll=(center.roll||0)*P.DEG,east=dx*Math.cos(roll)-dy*Math.sin(roll),north=dx*Math.sin(roll)+dy*Math.cos(roll);
       center.lat=P.clamp(center.lat+north/(P.RADIUS*zoom)/P.DEG,-90,90);
-      center.lon=P.wrap(center.lon-east/(P.RADIUS*zoom*Math.max(.12,Math.cos(center.lat*P.DEG)))/P.DEG);schedule();
+      center.lon=P.wrap(center.lon-east/(P.RADIUS*zoom*(northUp?1:Math.max(.12,Math.cos(center.lat*P.DEG))))/P.DEG);schedule();
     }
-    function panTo(field){cancelPending();const point=getPoint(field);if(point){center={lon:point[1],lat:zoom===1?0:point[0]};render();}}
-    function resize(){if(!active)return;width=scroll.clientWidth;height=scroll.clientHeight;svg.setAttribute('viewBox',`0 0 ${width} ${height}`);background.setAttribute('width',width);background.setAttribute('height',height);render();}
+    function panTo(field){cancelPending();framed=false;const point=getPoint(field);if(point){center={lon:point[1],lat:zoom===1?0:point[0]};render();}}
+    function resize(){if(!active)return;width=scroll.clientWidth;height=scroll.clientHeight;svg.setAttribute('viewBox',`0 0 ${width} ${height}`);background.setAttribute('width',width);background.setAttribute('height',height);if(framed)fitCities();render();}
     function enable(value){
       if(value===active)return;active=value;centerLabel.hidden=!active;clearHover();
       if(active){savedScroll={left:scroll.scrollLeft,top:scroll.scrollTop};prepare();legacySvg.style.display='none';svg.style.display='block';scroll.classList.add('focus-active');scroll.scrollLeft=scroll.scrollTop=0;resize();}
@@ -126,14 +148,16 @@
     scroll.addEventListener('gesturestart',e=>{if(!active)return;stop(e);if(pointers.size>=2)return;const p=point(e);gesture={zoom,anchor:geoAt(p)};},{capture:true,passive:false});
     scroll.addEventListener('gesturechange',e=>{if(!active||!gesture)return;stop(e);if(pointers.size>=2)return;const p=point(e),value=P.clamp(gesture.zoom*e.scale,minimumZoom,4),anchor=gesture.anchor;pending=()=>{zoom=value;anchored(anchor,p,value);};schedule();},{capture:true,passive:false});
     scroll.addEventListener('gestureend',e=>{if(active){stop(e);gesture=null;}},{capture:true,passive:false});
-    scroll.addEventListener('keydown',e=>{if(!active||e.target!==scroll)return;const step=60;if(e.key==='ArrowUp')panPixels(0,step);else if(e.key==='ArrowDown')panPixels(0,-step);else if(e.key==='ArrowLeft')panPixels(step,0);else if(e.key==='ArrowRight')panPixels(-step,0);else if(e.key==='Home'){center.lat=0;center.roll=0;render();}else return;stop(e);},{capture:true});
+    scroll.addEventListener('keydown',e=>{if(!active||e.target!==scroll)return;const step=60;if(e.key==='ArrowUp')panPixels(0,step);else if(e.key==='ArrowDown')panPixels(0,-step);else if(e.key==='ArrowLeft')panPixels(step,0);else if(e.key==='ArrowRight')panPixels(-step,0);else if(e.key==='Home'){framed=false;center.lat=0;center.roll=0;render();}else return;stop(e);},{capture:true});
     document.addEventListener('favoriteschange',()=>{if(active){buildPins();render();}});new ResizeObserver(resize).observe(scroll);
     function alignCities(result){
-      if(!result.available||!active)return;cancelPending();clearHover();center={...result.center};
+      if(!result.available||!active)return;cancelPending();clearHover();northUp=framed=false;center={...result.center};
       const fit=Math.max(.1,(width-64)/(P.RADIUS*result.angle));minimumZoom=Math.min(1,fit);zoom=Math.min(4,fit);render();
       $('map-hint').textContent='Cities aligned · North Pole toward the top where possible. Reset restores north-up.';
     }
-    const api={get active(){return active;},get zoom(){return zoom;},enable,setZoom,panTo,alignCities,update:()=>render(),west:()=>panPixels(150,0),east:()=>panPixels(-150,0),reset:()=>{cancelPending();zoom=1;minimumZoom=1;center.lat=0;center.roll=0;center.lon=getPoint(getField())?.[1]||0;render();},metrics:()=>({prepareMs,lastRenderMs,center:{...center},zoom}),profileMove:(lon,lat,z,roll=0)=>{center={lon,lat,roll};zoom=z;render();return lastRenderMs;}};
+    function fitCities(){const result=P.framing(getPoint('source'),getPoint('target'),width,height);if(!result.available)return;center={...result.center};zoom=result.zoom;minimumZoom=Math.min(1,zoom);}
+    function frameCities(){if(!active)return;cancelPending();clearHover();northUp=framed=true;fitCities();render();$('map-hint').textContent='Cities framed · North is vertical. Centered on the shorter longitude interval.';}
+    const api={get active(){return active;},get zoom(){return zoom;},enable,setZoom,panTo,alignCities,frameCities,update:()=>render(),west:()=>panPixels(150,0),east:()=>panPixels(-150,0),reset:()=>{cancelPending();northUp=framed=false;zoom=1;minimumZoom=1;center.lat=0;center.roll=0;center.lon=getPoint(getField())?.[1]||0;render();},metrics:()=>({prepareMs,lastRenderMs,center:{...center},zoom}),profileMove:(lon,lat,z,roll=0)=>{northUp=framed=false;center={lon,lat,roll};zoom=z;render();return lastRenderMs;}};
     return api;
   };
 })(globalThis);

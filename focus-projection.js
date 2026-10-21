@@ -5,13 +5,32 @@
   const wrap=lon=>((lon+180)%360+360)%360-180;
   function raw(lon,lat){return [lon,Math.tanh(K*lat)/K];}
   raw.invert=(x,y)=>[x,Math.atanh(clamp(K*y,-Math.tanh(K*Math.PI/2),Math.tanh(K*Math.PI/2)))/K];
+  // Cylindrical latitude focus: meridians stay vertical and latitude order is
+  // preserved, while expansion is greatest at the viewport's center latitude.
+  function northUpRaw(latitude){
+    const focus=latitude*DEG;
+    const project=(lon,lat)=>[lon,Math.tanh(K*(lat-focus))/K];
+    project.invert=(x,y)=>[x,focus+Math.atanh(clamp(K*y,-Math.tanh(K*Math.PI),Math.tanh(K*Math.PI)))/K];
+    return project;
+  }
+  const validPoint=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=90&&Math.abs(p[1])<=180;
+  function framing(a,b,width,height){
+    if(!validPoint(a)||!validPoint(b))return {available:false,reason:'Choose a city for both My timezone and Their timezone.'};
+    const delta=wrap(b[1]-a[1]);
+    // Exactly opposite longitudes have two equally short intervals. Pick the
+    // one through longitude zero consistently, independent of city order.
+    const lon=Math.abs(delta)===180?wrap((a[1]+b[1])/2):wrap(a[1]+delta/2);
+    const lat=(a[0]+b[0])/2,spanX=Math.abs(delta)*DEG;
+    const spanY=2*Math.tanh(K*Math.abs(b[0]-a[0])*DEG/2)/K;
+    const zoom=Math.min(4,spanX?(width-64)/(RADIUS*spanX):Infinity,spanY?(height-64)/(RADIUS*spanY):Infinity);
+    return {available:true,center:{lon,lat,roll:0},zoom};
+  }
   function camera(projection,center,zoom,width,height){return projection.rotate([-center.lon,-center.lat,center.roll||0]).scale(RADIUS*zoom).translate([width/2,height/2]);}
   // The midpoint of the shorter arc becomes the camera center. Rotate its
   // tangent to latitude 0, choosing the half-turn that keeps the North Pole
   // above the arc. City order may reverse; a meridional arc puts the pole on it.
   function alignment(a,b){
-    const valid=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=90&&Math.abs(p[1])<=180;
-    if(!valid(a)||!valid(b))return {available:false,reason:'Choose a city for both My timezone and Their timezone.'};
+    if(!validPoint(a)||!validPoint(b))return {available:false,reason:'Choose a city for both My timezone and Their timezone.'};
     const vector=([lat,lon])=>[Math.cos(lat*DEG)*Math.cos(lon*DEG),Math.cos(lat*DEG)*Math.sin(lon*DEG),Math.sin(lat*DEG)];
     const u=vector(a),v=vector(b),sum=u.map((x,i)=>x+v[i]),length=Math.hypot(...sum);
     if(length<1e-6)return {available:false,reason:'Opposite cities do not define a unique shorter great-circle arc.'};
@@ -56,5 +75,5 @@
     }
     options.sort((a,b)=>a.cost-b.cost);return options[0]||null;
   }
-  const api={DEG,RADIUS,K,raw,camera,alignment,decode,anchored,wrap,clamp};root.MeetingFocusProjection=api;if(typeof module!=='undefined')module.exports=api;
+  const api={DEG,RADIUS,K,raw,northUpRaw,camera,alignment,framing,decode,anchored,wrap,clamp};root.MeetingFocusProjection=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

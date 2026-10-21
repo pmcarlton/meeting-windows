@@ -60,3 +60,37 @@ for(const [a,b] of cityPairs){
 }
 for(const [a,b] of [[null,[0,0]],[[0,0],null],[[NaN,0],[0,0]],[[91,0],[0,0]],[[0,0],[0,0]],[[45,25],[-45,-155]],[[90,10],[90,90]]])assert.equal(P.alignment(a,b).available,false);
 console.log('Passed city alignment: northward orientation, swapped cities, meridional ties, shorter arcs, midpoint, horizontal samples, date line, poles, near antipodes, narrow-screen fit, rolled zoom anchors, invalid/ambiguous pairs.');
+
+// North-up framing preserves latitude order and vertical meridians, rather
+// than rotating a great circle. Fit both screen dimensions with label padding.
+const framePairs=[...cityPairs,[[0,0],[0,0]],[[45,25],[-45,-155]],[[80,-120],[80,100]],[[90,0],[-90,180]]];
+for(const [a,b] of framePairs){
+  for(const width of [340,1034,1374]){
+    const frame=P.framing(a,b,width,256),reversed=P.framing(b,a,width,256);
+    assert.ok(frame.available);assert.ok(frame.zoom>0&&frame.zoom<=4);
+    assert.ok(Math.abs(P.wrap(frame.center.lon-reversed.center.lon))<1e-7);
+    assert.ok(Math.abs(frame.zoom-reversed.zoom)<1e-7);
+    const projected=d3.geoProjection(P.northUpRaw(frame.center.lat)).rotate([-frame.center.lon,0,0]).center([0,frame.center.lat]).scale(P.RADIUS*frame.zoom).translate([width/2,128]);
+    const points=[a,b].map(([lat,lon])=>projected([lon,lat]));
+    for(const [x,y] of points){assert.ok(x>=32-1e-6&&x<=width-32+1e-6);assert.ok(y>=32-1e-6&&y<=224+1e-6);}
+    assert.ok(Math.abs((points[0][0]+points[1][0])/2-width/2)<1e-6);
+    assert.ok(Math.abs((points[0][1]+points[1][1])/2-128)<1e-6);
+    assert.ok((a[0]-b[0])*(points[0][1]-points[1][1])<=0,'North must appear above south');
+    for(const [lat,lon] of [a,b]){
+      const point=projected([lon,lat]),inverse=projected.invert(point);
+      assert.ok(Math.abs(P.wrap(inverse[0]-lon))<1e-6&&Math.abs(inverse[1]-lat)<1e-6);
+      const nearby=projected([lon,P.clamp(lat+.01,-90,90)]);
+      assert.ok(Math.abs(point[0]-nearby[0])<1e-7,'Meridians must be vertical');
+    }
+    const render=d3.geoPath(projected).digits(1);
+    if(width===1034){
+      assert.ok(!/(NaN|Infinity)/.test(render({type:'LineString',coordinates:[a,b].map(([lat,lon])=>[lon,lat])})||''));
+    }
+  }
+}
+for(const latitude of [-90,0,80,90]){
+  const projected=d3.geoProjection(P.northUpRaw(latitude)).rotate([-179,0,0]).center([0,latitude]).scale(P.RADIUS).translate([600,128]),render=d3.geoPath(projected).digits(1);
+  for(const {zone,geometry} of geometries)assert.ok(!/(NaN|Infinity)/.test(render(geometry)||''),zone);
+}
+assert.equal(P.framing(null,[0,0],1200,256).available,false);
+console.log('Passed north-up framing: longitude midpoint, date-line crossings, latitude order, vertical meridians, 2D fit, inverse, reversed cities, coincident/antipodal cities, polar geometry.');

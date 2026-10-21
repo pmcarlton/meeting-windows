@@ -1,2 +1,2 @@
 Updated: 2026-10-21
-My timezone card and time axis use the orange Me color scheme.
+Neutral slate interface with semantic My/Their colors; added north-up Frame Cities with longitude midpoint and labeled 2D fit.
