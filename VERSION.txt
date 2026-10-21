@@ -1,2 +1,2 @@
 Updated: 2026-10-21
-Align Cities keeps the North Pole toward the top where possible, independent of city order.
+My timezone card and time axis use the orange Me color scheme.

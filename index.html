@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#164d43"><title>Meeting windows</title>
-  <link rel="stylesheet" href="style.css?v=20261021-north-up">
+  <link rel="stylesheet" href="style.css?v=20261021-my-orange">
 </head>
 <body>
 <main>
   <header class="app-header"><div class="brand"><span class="brand-icon" aria-hidden="true">◷</span><h1>Meeting windows</h1></div><div class="header-controls"><label for="clock-style">Time format<select id="clock-style"><option value="12">12-hour</option><option value="24">24-hour</option></select></label><span class="local-note">Saved in this browser</span></div></header>
   <section class="zones" aria-label="Timezones">
-    <div class="zone-card"><label for="source-zone"><span class="step">1</span> My timezone</label><div class="zone-picker"><input id="source-zone" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="source-options" autocomplete="off" spellcheck="false"><div id="source-options" class="zone-options" role="listbox" hidden></div></div><div id="source-detail" class="zone-detail"></div></div>
+    <div class="zone-card source"><label for="source-zone"><span class="step">1</span> My timezone</label><div class="zone-picker"><input id="source-zone" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="source-options" autocomplete="off" spellcheck="false"><div id="source-options" class="zone-options" role="listbox" hidden></div></div><div id="source-detail" class="zone-detail"></div></div>
     <div class="zone-arrow" aria-hidden="true">→</div>
     <div class="zone-card recipient"><label for="target-zone"><span class="step">2</span> Their timezone</label><div class="zone-picker"><input id="target-zone" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="target-options" autocomplete="off" spellcheck="false"><div id="target-options" class="zone-options" role="listbox" hidden></div></div><div id="target-detail" class="zone-detail"></div></div>
   </section>
