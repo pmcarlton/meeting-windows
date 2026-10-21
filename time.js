@@ -131,7 +131,72 @@
     const yearSuffix=years.length===1?` [${years[0]}]`:'';
     return (list?clauses.map(s=>'• '+s).join('\n'):clauses.join('; or '))+yearSuffix;
   }
-  const api={parts,stamp,civil,offset,candidates,resolve,dateKey,addDays,clock,dateLabel,zoneName,offsetLabel,zoneLabel,gridRectangle,hoverText,inAwayHours,awaySegments,normalize,describe};
+  // Merge by actual instants, retaining invalid drafts and explicit fold choices.
+  // Prefer the actively edited card's ID so its input controls can stay mounted.
+  function mergeRanges(ranges,zone,preferredId) {
+    const valid=[],invalid=[];
+    ranges.forEach((range,index)=>{try{const start=resolve(range.startDate,range.startTime,zone,range.startOccurrence),end=resolve(range.endDate,range.endTime,zone,range.endOccurrence);if(end<=start)throw Error();valid.push({range,index,start,end});}catch{invalid.push({index,range});}});
+    valid.sort((a,b)=>a.start-b.start);const clusters=[];
+    for(const entry of valid){const last=clusters.at(-1);if(last&&entry.start<=last.end){last.entries.push(entry);last.end=Math.max(last.end,entry.end);}else clusters.push({entries:[entry],end:entry.end});}
+    const result=clusters.map(({entries})=>{
+      const first=entries[0],last=entries.reduce((a,b)=>a.end>=b.end?a:b),keep=entries.find(e=>e.range.id===preferredId)||entries.reduce((a,b)=>a.index<=b.index?a:b);
+      return {index:Math.min(...entries.map(e=>e.index)),range:{...keep.range,startDate:first.range.startDate,startTime:first.range.startTime,startOccurrence:first.range.startOccurrence||'',endDate:last.range.endDate,endTime:last.range.endTime,endOccurrence:last.range.endOccurrence||''}};
+    });
+    return [...result,...invalid].sort((a,b)=>a.index-b.index).map(e=>e.range);
+  }
+  function eraseRanges(ranges,zone,rectangles,nextId){
+    const cuts=[];
+    for(const cut of rectangles)for(let wall=cut.start;wall<cut.end;wall+=30){const date=new Date(wall*60000),key=date.toISOString().slice(0,10),time=date.toISOString().slice(11,16);for(const start of candidates(key,time,zone))cuts.push({start,end:start+1800000});}
+    cuts.sort((a,b)=>a.start-b.start);const merged=[];for(const cut of cuts){const last=merged.at(-1);if(last&&cut.start<=last.end)last.end=Math.max(last.end,cut.end);else merged.push({...cut});}
+    const subtract=(pieces,cuts)=>{for(const cut of cuts)pieces=pieces.flatMap(p=>p.end<=cut.start||p.start>=cut.end?[p]:[...(p.start<cut.start?[{start:p.start,end:cut.start}]:[]),...(p.end>cut.end?[{start:cut.end,end:p.end}]:[])]);return pieces;};
+    const endpoint=(ms,prefix,wall=false)=>{
+      const p=wall?{year:new Date(ms).getUTCFullYear(),month:new Date(ms).getUTCMonth()+1,day:new Date(ms).getUTCDate(),hour:new Date(ms).getUTCHours(),minute:new Date(ms).getUTCMinutes()}:parts(ms,zone);
+      const date=`${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`,time=`${String(p.hour).padStart(2,'0')}:${String(p.minute).padStart(2,'0')}`;
+      const options=wall?[]:candidates(date,time,zone),occurrence=options.length>1?(options.indexOf(ms)===0?'first':'second'):'';
+      return {[prefix+'Date']:date,[prefix+'Time']:time,[prefix+'Occurrence']:occurrence};
+    };
+    return ranges.flatMap(r=>{
+      let start,end,wall=false;
+      try{start=resolve(r.startDate,r.startTime,zone,r.startOccurrence);end=resolve(r.endDate,r.endTime,zone,r.endOccurrence);if(end<=start)return [r];}
+      catch{try{start=stamp(civil(r.startDate,r.startTime));end=stamp(civil(r.endDate,r.endTime));if(end<=start)return [r];wall=true;}catch{return [r];}}
+      const pieces=subtract([{start,end}],wall?rectangles.map(c=>({start:c.start*60000,end:c.end*60000})):merged);
+      return pieces.map((p,i)=>({...r,id:i?nextId():r.id,...(p.start!==start?endpoint(p.start,'start',wall):{}),...(p.end!==end?endpoint(p.end,'end',wall):{})}));
+    });
+  }
+  function selectionState(ranges,zone){
+    const intervals=[],drafts=[];
+    for(const r of ranges){try{const start=resolve(r.startDate,r.startTime,zone,r.startOccurrence),end=resolve(r.endDate,r.endTime,zone,r.endOccurrence);if(end>start)intervals.push({start,end});}catch{try{const start=stamp(civil(r.startDate,r.startTime)),end=stamp(civil(r.endDate,r.endTime));if(end>start)drafts.push({start,end});}catch{}}}
+    return {intervals,drafts};
+  }
+  function slotSelection(date,time,zone,selection){
+    const duration=1800000,segments=[];
+    const intersect=(base,interval)=>{const a=Math.max(0,(interval.start-base)/duration),b=Math.min(1,(interval.end-base)/duration);if(b>a)segments.push([a,b]);};
+    const starts=candidates(date,time,zone);if(!starts.length)return {selected:false,segments:[],gradient:'none'};
+    for(const base of starts)for(const interval of selection.intervals)intersect(base,interval);
+    const wall=stamp(civil(date,time));for(const interval of selection.drafts)intersect(wall,interval);
+    segments.sort((a,b)=>a[0]-b[0]);const merged=[];
+    for(const [start,end] of segments){const last=merged.at(-1);if(last&&start<=last[1])last[1]=Math.max(last[1],end);else merged.push([start,end]);}
+    if(!merged.length)return {selected:false,segments:[],gradient:'none'};
+    const stops=[];let previous=0;
+    for(const [start,end] of merged){if(start>previous)stops.push(`transparent ${(previous*100).toFixed(3)}% ${(start*100).toFixed(3)}%`);stops.push(`#c3d9ed ${(start*100).toFixed(3)}% ${(end*100).toFixed(3)}%`);previous=end;}
+    if(previous<1)stops.push(`transparent ${(previous*100).toFixed(3)}% 100%`);
+    return {selected:true,segments:merged,gradient:`linear-gradient(to bottom,${stops.join(',')})`};
+  }
+  function axisRows(date,source,target,h24=false){
+    return Array.from({length:48},(_,row)=>{
+      const wall=String(Math.floor(row/2)).padStart(2,'0')+':'+(row%2?'30':'00'),starts=candidates(date,wall,source),labels=[...new Set(starts.map(ms=>clock(ms,target,h24)))],boundaries=[];
+      for(const start of starts){
+        const before=dateKey(start-1,target),last=dateKey(start+1800000-1,target);
+        if(before===last)continue;
+        let delta=0;
+        if(dateKey(start,target)===before){let low=0,high=1800000-1;while(high-low>1){const mid=Math.floor((low+high)/2);if(dateKey(start+mid,target)===before)low=mid;else high=mid;}delta=high;}
+        const ms=start+delta,key=dateKey(ms,target),fraction=delta/1800000;
+        if(!boundaries.some(b=>b.date===key&&Math.abs(b.fraction-fraction)<1e-5))boundaries.push({fraction,date:key,label:fmt(target,{weekday:'short'}).format(ms)+' '+parts(ms,target).day,time:clock(ms,target,h24),title:dateLabel(ms,target)+' · '+clock(ms,target,h24)});
+      }
+      return {time:wall,labels,boundaries,title:hoverText(date,wall,source,target,h24)};
+    });
+  }
+  const api={parts,stamp,civil,offset,candidates,resolve,dateKey,addDays,clock,dateLabel,zoneName,offsetLabel,zoneLabel,gridRectangle,mergeRanges,eraseRanges,selectionState,slotSelection,axisRows,hoverText,inAwayHours,awaySegments,normalize,describe};
   root.MeetingTime=api;
   if(typeof module!=='undefined') module.exports=api;
 })(globalThis);
