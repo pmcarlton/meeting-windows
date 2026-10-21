@@ -20,3 +20,6 @@
 .map-scroll.focus-active{overflow:hidden;position:relative}.map-scroll #focus-map{width:100%;height:100%;max-width:none;max-height:none}.focus-active .map-region{transition:none}
 
 .map-center-label{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:10px}
+/* Urumqi overlaps Shanghai in the boundary data. Reuse the underlying base
+   fill so it is not shaded twice; selected and hovered states still paint it. */
+.map-region[data-zone="Asia/Urumqi"]:not(.is-source):not(.is-target):not(.is-hover){fill-opacity:0}
