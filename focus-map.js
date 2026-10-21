@@ -131,7 +131,7 @@
     function alignCities(result){
       if(!result.available||!active)return;cancelPending();clearHover();center={...result.center};
       const fit=Math.max(.1,(width-64)/(P.RADIUS*result.angle));minimumZoom=Math.min(1,fit);zoom=Math.min(4,fit);render();
-      $('map-hint').textContent='Cities aligned · My city on the left, their city on the right. Reset restores north-up.';
+      $('map-hint').textContent='Cities aligned · North Pole toward the top where possible. Reset restores north-up.';
     }
     const api={get active(){return active;},get zoom(){return zoom;},enable,setZoom,panTo,alignCities,update:()=>render(),west:()=>panPixels(150,0),east:()=>panPixels(-150,0),reset:()=>{cancelPending();zoom=1;minimumZoom=1;center.lat=0;center.roll=0;center.lon=getPoint(getField())?.[1]||0;render();},metrics:()=>({prepareMs,lastRenderMs,center:{...center},zoom}),profileMove:(lon,lat,z,roll=0)=>{center={lon,lat,roll};zoom=z;render();return lastRenderMs;}};
     return api;

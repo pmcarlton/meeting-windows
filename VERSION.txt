@@ -1,2 +1,2 @@
 Updated: 2026-10-21
-Restored grid selection commits; added My/Their clock-change badges, date boundaries, and exact transition ticks.
+Align Cities keeps the North Pole toward the top where possible, independent of city order.

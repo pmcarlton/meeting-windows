@@ -23,13 +23,15 @@ for(const lat of [-90,-54.8,0,59.913,90]){P.camera(projection,{lon:lat?10.746:17
 console.log('Passed focus: invertibility, peak center scale, local shape proportions, both polar centers, zoom anchors, polygon winding, region containment, seam/pole rendering.');
 
 // An aligned shorter great-circle arc must be horizontal along its entire
-// length, centered at its spherical midpoint, and ordered My -> Their.
+// length, centered at its spherical midpoint, with the North Pole above it
+// (or on it for meridional arcs), regardless of which city is My or Their.
 const cityPairs=[
   [[35.676,139.65],[34.05,-118.24]], // Tokyo / Los Angeles, crossing the date line
   [[59.913,10.746],[-54.8,-68.3]], // Oslo / Ushuaia, substantial roll
   [[45,0],[45,180]], // midpoint at the North Pole
   [[-45,0],[-45,180]], // midpoint at the South Pole
   [[90,0],[-25,140]], // endpoint at a pole
+  [[59.913,10.746],[-25,10.746]], // meridional tie, neither side is northward
   [[0,179],[0,-179]], // use the short date-line crossing, not 358 degrees
   [[10,0],[-10,179.999]], // almost opposite, still a unique arc
   [[35.68,139.69],[35.681,139.691]] // nearby distinct cities
@@ -37,11 +39,14 @@ const cityPairs=[
 for(let i=0;i<80;i++)cityPairs.push([[Math.sin(i*2.1)*89,Math.sin(i*1.7)*180],[Math.cos(i*.7)*89,Math.cos(i*2.7)*180]]);
 for(const [a,b] of cityPairs){
   const result=P.alignment(a,b);assert.ok(result.available);
+  const reversed=P.alignment(b,a);assert.ok(reversed.available);
+  assert.ok(Math.abs(result.center.roll-reversed.center.roll)<1e-5,'Swapping cities must preserve orientation');
   for(const width of [340,1200]){
     const zoom=Math.min(4,(width-64)/(P.RADIUS*result.angle));P.camera(projection,result.center,zoom,width,256);
     const start=projection([a[1],a[0]]),end=projection([b[1],b[0]]);
-    assert.ok(start[0]>=32-1e-5&&end[0]<=width-32+1e-5);assert.ok(start[0]<end[0]);
+    assert.ok(Math.min(start[0],end[0])>=32-1e-5&&Math.max(start[0],end[0])<=width-32+1e-5);
     assert.ok(Math.abs((start[0]+end[0])/2-width/2)<1e-5);
+    assert.ok(projection([0,90])[1]<=128+1e-7,'North Pole must be above or on the centerline');
     const arc=d3.geoInterpolate([a[1],a[0]],[b[1],b[0]]);
     for(let step=0;step<=20;step++)assert.ok(Math.abs(projection(arc(step/20))[1]-128)<1e-5);
     // Pointer-anchored zoom must unroll the local coordinates before using
@@ -54,4 +59,4 @@ for(const [a,b] of cityPairs){
   }
 }
 for(const [a,b] of [[null,[0,0]],[[0,0],null],[[NaN,0],[0,0]],[[91,0],[0,0]],[[0,0],[0,0]],[[45,25],[-45,-155]],[[90,10],[90,90]]])assert.equal(P.alignment(a,b).available,false);
-console.log('Passed city alignment: shorter arcs, midpoint, horizontal samples, date line, poles, near antipodes, narrow-screen fit, rolled zoom anchors, invalid/ambiguous pairs.');
+console.log('Passed city alignment: northward orientation, swapped cities, meridional ties, shorter arcs, midpoint, horizontal samples, date line, poles, near antipodes, narrow-screen fit, rolled zoom anchors, invalid/ambiguous pairs.');

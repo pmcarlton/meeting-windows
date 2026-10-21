@@ -7,7 +7,8 @@
   raw.invert=(x,y)=>[x,Math.atanh(clamp(K*y,-Math.tanh(K*Math.PI/2),Math.tanh(K*Math.PI/2)))/K];
   function camera(projection,center,zoom,width,height){return projection.rotate([-center.lon,-center.lat,center.roll||0]).scale(RADIUS*zoom).translate([width/2,height/2]);}
   // The midpoint of the shorter arc becomes the camera center. Rotate its
-  // tangent so My city is left and Their city is right, with both at latitude 0.
+  // tangent to latitude 0, choosing the half-turn that keeps the North Pole
+  // above the arc. City order may reverse; a meridional arc puts the pole on it.
   function alignment(a,b){
     const valid=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=90&&Math.abs(p[1])<=180;
     if(!valid(a)||!valid(b))return {available:false,reason:'Choose a city for both My timezone and Their timezone.'};
@@ -19,7 +20,12 @@
     const m=sum.map(x=>x/length),lon=Math.atan2(m[1],m[0]),lat=Math.atan2(m[2],Math.hypot(m[0],m[1]));
     const east=-Math.sin(lon)*v[0]+Math.cos(lon)*v[1];
     const north=-Math.sin(lat)*Math.cos(lon)*v[0]-Math.sin(lat)*Math.sin(lon)*v[1]+Math.cos(lat)*v[2];
-    return {available:true,center:{lon:lon/DEG,lat:lat/DEG,roll:Math.atan2(-north,east)/DEG},angle:Math.atan2(sine,u.reduce((sum,x,i)=>sum+x*v[i],0))};
+    let roll=Math.atan2(-north,east)/DEG;
+    if(roll>90)roll-=180;else if(roll< -90)roll+=180;
+    // At the meridian tie either orientation is equally northward. Snap to a
+    // consistent choice so swapping cities cannot flip the view due to rounding.
+    if(Math.abs(Math.abs(roll)-90)<1e-9)roll=-90;
+    return {available:true,center:{lon:lon/DEG,lat:lat/DEG,roll},angle:Math.atan2(sine,u.reduce((sum,x,i)=>sum+x*v[i],0))};
   }
   function decode(path,d3){
     const rings=path.split('M').slice(1).map(part=>{
