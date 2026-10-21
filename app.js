@@ -24,12 +24,24 @@
   const canonicalCache=new Map();
   const canonical=z=>{if(!canonicalCache.has(z)){try{canonicalCache.set(z,new Intl.DateTimeFormat('en',{timeZone:z}).resolvedOptions().timeZone);}catch{canonicalCache.set(z,z);}}return canonicalCache.get(z);};
   // Keep actual city coordinates separate from a timezone's display name.
-  const citySelection=(entry,zone=entry?.zone)=>entry&&typeof entry.zone==='string'&&validZone(entry.zone)&&Number.isFinite(entry.lat)&&Math.abs(entry.lat)<=90&&Number.isFinite(entry.lon)&&Math.abs(entry.lon)<=180&&canonical(entry.zone)===canonical(zone)?{zone,label:entry.label,lat:entry.lat,lon:entry.lon}:null;
-  state.defaultCity=citySelection(stored?.defaultCity,state.defaultTimezone);
-  state.sourceCity=state.defaultCity||(!stored?.defaultPlace&&state.source===stored?.source?citySelection(stored?.sourceCity,state.source):null);
-  state.targetCity=citySelection(stored?.targetCity,state.target);
+  const citySelection=(entry,zone=entry?.zone)=>entry&&typeof entry.label==='string'&&entry.label.trim()&&typeof entry.zone==='string'&&validZone(entry.zone)&&Number.isFinite(entry.lat)&&Math.abs(entry.lat)<=90&&Number.isFinite(entry.lon)&&Math.abs(entry.lon)<=180&&canonical(entry.zone)===canonical(zone)?{zone,label:entry.label,lat:entry.lat,lon:entry.lon}:null;
   const countryNames=new Intl.DisplayNames(['en'],{type:'region'}),norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[_−]/g,' ').replace(/\s+/g,' ').trim();
   const cityEntries=(window.CityData||[]).filter(c=>validZone(c[4])).map(c=>({zone:c[4],label:c[0],country:c[2],detail:`${countryNames.of(c[2])}${['US','CA'].includes(c[2])?' · '+c[3]:''} · ${c[4]}`,lat:c[5],lon:c[6],key:norm(c[0]+' '+c[1]+' '+countryNames.of(c[2])+' '+c[4]),name:norm(c[0]),ascii:norm(c[1])}));
+  function restoreCity(entry,place,zone){
+    const saved=citySelection(entry,zone);
+    if(saved&&(!place||norm(saved.label)===norm(place)))return saved;
+    // Older preferences can retain a city label after losing its coordinates.
+    // A timezone's own display name is not evidence that a city was selected.
+    if(typeof place!=='string'||!place.trim()||[city(zone),city(canonical(zone))].some(label=>norm(label)===norm(place)))return null;
+    const matches=cityEntries.filter(c=>canonical(c.zone)===canonical(zone)&&(c.name===norm(place)||c.ascii===norm(place)));
+    const locations=new Map(matches.map(c=>[`${c.lat}|${c.lon}`,c]));
+    return locations.size===1?citySelection({...locations.values().next().value,label:place},zone):null;
+  }
+  state.defaultCity=restoreCity(stored?.defaultCity,state.defaultPlace,state.defaultTimezone);
+  state.sourceCity=state.defaultCity||(canonical(state.source)===canonical(stored?.source)?restoreCity(stored?.sourceCity,state.sourcePlace,state.source):null);
+  state.targetCity=restoreCity(stored?.targetCity,state.targetPlace,state.target);
+  if(state.defaultCity)state.defaultPlace=state.defaultCity.label;
+  for(const field of ['source','target'])if(state[field+'City'])state[field+'Place']=state[field+'City'].label;
   const defaultCities=[['Honolulu','US'],['Los Angeles','US'],['New York City','US'],['Chicago','US'],['Mexico City','MX'],['São Paulo','BR'],['Buenos Aires','AR'],['London','GB'],['Paris','FR'],['Cairo','EG'],['Cape Town','ZA'],['Dubai','AE'],['Mumbai','IN'],['Kathmandu','NP'],['Singapore','SG'],['Bangkok','TH'],['Beijing','CN'],['Tokyo','JP'],['Seoul','KR'],['Sydney','AU'],['Perth','AU'],['Auckland','NZ']];
   const defaults=defaultCities.map(([label,country])=>cityEntries.find(c=>c.label===label&&c.country===country)).filter(Boolean).map(c=>({zone:c.zone,label:c.label==='New York City'?'New York':c.label,detail:c.detail,lat:c.lat,lon:c.lon}));
   const favoriteKey=f=>`${canonical(f.zone)}|${Number(f.lat).toFixed(2)}|${Number(f.lon).toFixed(2)}`;

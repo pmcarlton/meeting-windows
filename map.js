@@ -44,9 +44,9 @@
     hoveredRegions?.forEach(node=>node.classList.remove('is-hover'));
     hoveredRegions=group;
     group?.forEach(node=>node.classList.add('is-hover'));
-    if(group){const zone=group[0].dataset.zone;$('map-hint').textContent=`${zone} · ${T.offsetLabel(Date.now(),zone)} now`;}
+    if(group){const zone=group[0].dataset.zone;$('map-hint').textContent=`${zone} · ${T.offsetLabel(Date.now(),zone)} now`;}else $('map-hint').textContent='';
   }
-  const clearHover=()=>setHover();
+  const clearHover=()=>{setHover();$('map-hint').textContent='';};
   const regionPaths=regions.flatMap(([zone,path])=>{
     const offset=T.offset(Date.now(),zone),hue=220+offset/40;
     const e=shape({d:path,fill:`hsl(${hue} 32% 60%)`,'fill-opacity':.32,'fill-rule':'evenodd',stroke:'#8592a3','stroke-opacity':.55,'stroke-width':.55,'data-zone':zone,'class':'map-region'},regionLayer);
@@ -76,6 +76,7 @@
     for(const choice of choices){const [dx,dy,align]=choice,w=name.length*6.5;rect={left:x+dx-(align==='end'?w:0),right:x+dx+(align==='end'?0:w),top:y+dy-11,bottom:y+dy+2};chosen=choice;if(!labelRects.some(r=>r.left<rect.right+2&&r.right>rect.left-2&&r.top<rect.bottom+2&&r.bottom>rect.top-2))break;}
     labelRects.push(rect);const [dx,dy,align]=chosen;
     el('text',{x:dx,y:dy,'text-anchor':align,'class':'pin-label'},g).textContent=name;
+    if(['source','target'].some(f=>{const entry=UI.state[f+'City'];return entry&&entry.lat===c[5]&&entry.lon===c[6];}))g.querySelector('text').style.display='none';
     const entry={zone:c[4],label:name,lat:c[5],lon:c[6]};
     g.addEventListener('click',e=>{e.stopPropagation();select(entry);});g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(entry);}});
     wrap(g,copy=>{copy.classList.add('city-pin');copy.dataset.city=name;copy.addEventListener('click',e=>{e.stopPropagation();select(entry);});});
@@ -101,7 +102,8 @@
     regionPaths.forEach(e=>{const z=UI.canonical(e.dataset.zone);e.classList.toggle('is-source',z===UI.canonical(UI.state.source));e.classList.toggle('is-target',z===UI.canonical(UI.state.target));});
     selectedLayer.replaceChildren();
     const a=getPoint('source'),b=getPoint('target'),together=a&&b&&Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])<3;
-    ['source','target'].forEach(f=>{const p=getPoint(f);if(!p)return;const [x,y]=project(...p),g=el('g',{transform:`translate(${x} ${y})`,'data-lat':p[0],'data-lon':p[1],'class':f==='source'?'selected-me':'selected-them'},selectedLayer);el('circle',{r:7,'fill-opacity':.22},g);el('circle',{cx:together?(f==='source'?-3:3):0,r:4,stroke:'#fff','stroke-width':1.5},g);});
+    ['source','target'].forEach(f=>{const p=getPoint(f);if(!p)return;const [x,y]=project(...p),g=el('g',{transform:`translate(${x} ${y})`,'data-lat':p[0],'data-lon':p[1],'class':f==='source'?'selected-me':'selected-them'},selectedLayer);el('circle',{r:7,'fill-opacity':.22},g);el('circle',{cx:together?(f==='source'?-3:3):0,r:4,stroke:'#fff','stroke-width':1.5},g);const entry=UI.state[f+'City'];if(entry)el('text',{x:x>WORLD/2?-9:9,y:f==='source'?-12:20,'text-anchor':x>WORLD/2?'end':'start','class':'pin-label selected-city-label'},g).textContent=entry.label;});
+    pins.querySelectorAll('g.city-pin').forEach(g=>{g.querySelector('text').style.display=['source','target'].some(f=>{const entry=UI.state[f+'City'];return entry&&entry.lat===+g.dataset.lat&&entry.lon===+g.dataset.lon;})?'none':'';});
     updateBadgeRail();
   }
   let zoom=1;
@@ -112,8 +114,8 @@
     for(const f of ['source','target'])if(positions[f]!==undefined)$(f+'-map-badge').style.left=Math.max(23,Math.min(width-23,positions[f]))+'px';
   }
   function panTo(f,behavior='smooth'){if(focus?.active){focus.panTo(f);return;}clearHover();const p=getPoint(f);if(!p)return;const [x,y]=project(...p),center=(scroll.scrollLeft+scroll.clientWidth/2)/zoom;const copies=[x+overlap-WORLD,x+overlap,x+overlap+WORLD].filter(n=>n>=0&&n<=WORLD+2*overlap);const nearest=copies.reduce((a,b)=>Math.abs(a-center)<Math.abs(b-center)?a:b);scroll.scrollTo({left:nearest*zoom-scroll.clientWidth/2,top:zoom>1?y*zoom-scroll.clientHeight/2:0,behavior});}
-  function select(entry){clearHover();UI.chooseZone(field,entry);$('map-hint').textContent=`${field==='source'?'My':'Their'} timezone: ${entry.label} · ${T.offsetLabel(Date.now(),entry.zone)} now`;}
-  function mode(f){field=f;$('map-source').setAttribute('aria-pressed',String(f==='source'));$('map-target').setAttribute('aria-pressed',String(f==='target'));$('map-hint').textContent=`Click a region or city to set ${f==='source'?'my':'their'} timezone.`;panTo(f);}
+  function select(entry){clearHover();UI.chooseZone(field,entry);}
+  function mode(f){field=f;clearHover();$('map-source').setAttribute('aria-pressed',String(f==='source'));$('map-target').setAttribute('aria-pressed',String(f==='target'));panTo(f);}
   $('map-source').onclick=()=>mode('source');$('map-target').onclick=()=>mode('target');
   $('map-left').onclick=()=>focus?.active?focus.west():scroll.scrollBy({left:-Math.max(180,scroll.clientWidth*.55),behavior:'smooth'});$('map-right').onclick=()=>focus?.active?focus.east():scroll.scrollBy({left:Math.max(180,scroll.clientWidth*.55),behavior:'smooth'});
   function setZoom(value,point,world){
@@ -185,7 +187,7 @@
   window.addEventListener('blur',clearHover);
   document.addEventListener('visibilitychange',clearHover);
   scroll.addEventListener('scroll',()=>{if(focus?.active)return;clearHover();updateBadgeRail();},{passive:true});
-  document.addEventListener('zonechange',e=>{const d=e.detail;if(Number.isFinite(d.lat)&&Number.isFinite(d.lon))selectedPoints[d.field]=[d.lat,d.lon];else delete selectedPoints[d.field];updateAlignmentButton();if(focus?.active){focus.panTo(d.field);return;}updateProjection();redraw();panTo(d.field);$('map-hint').textContent=`Click a region or city to set ${field==='source'?'my':'their'} timezone.`;});
+  document.addEventListener('zonechange',e=>{clearHover();const d=e.detail;if(Number.isFinite(d.lat)&&Number.isFinite(d.lon))selectedPoints[d.field]=[d.lat,d.lon];else delete selectedPoints[d.field];updateAlignmentButton();if(focus?.active){focus.panTo(d.field);return;}updateProjection();redraw();panTo(d.field);});
   new ResizeObserver(()=>{if(focus?.active)return;const next=scroll.clientWidth/4;if(Math.abs(next-overlap)<5)return;overlap=next;world.setAttribute('transform',`translate(${overlap} 0)`);svg.setAttribute('viewBox',`0 0 ${WORLD+2*overlap} ${P.height(blend)}`);svg.style.width=(WORLD+2*overlap)*zoom+'px';panTo(field,'instant');}).observe(scroll);
   focus=createFocusMap({scroll,legacySvg:svg,getPoint,getField:()=>field,choose:select});
   focus.enable(projectionMode.value==='focus');

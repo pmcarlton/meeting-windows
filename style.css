@@ -57,3 +57,5 @@ body{min-width:1100px}main{max-width:1440px;padding:24px 32px 20px}.app-header{m
 .selected-me .selected-city-label{fill:#965126}
 .selected-them .selected-city-label{fill:#155d47}
 #source-away-enabled{accent-color:#965126}#target-away-enabled{accent-color:#276c51}
+
+.selected-map-pins .selected-city-label{font-size:13px;letter-spacing:0}

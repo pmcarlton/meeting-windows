@@ -1,2 +1,2 @@
 Updated: 2026-10-21
-Neutral slate interface with semantic My/Their colors; added north-up Frame Cities with longitude midpoint and labeled 2D fit.
+Restore saved city coordinates and recover unique older city labels; show selected city names in all map modes; clear hover captions with their highlights.
