@@ -9,6 +9,7 @@
   const defaultTimezone=validZone(stored?.defaultTimezone)?stored.defaultTimezone:validZone(stored?.source)?stored.source:browserZone;
   const cleanHours=h=>({start:/^([01]\d|2[0-3]):[0-5]\d$/.test(h?.start)?h.start:'18:00',end:/^([01]\d|2[0-3]):[0-5]\d$/.test(h?.end)?h.end:'08:00',enabled:h?.enabled!==false});
   const state={source:defaultTimezone,target:validZone(stored?.target)?stored.target:'America/Los_Angeles',sourcePlace:stored?.defaultPlace||(defaultTimezone===stored?.source?stored?.sourcePlace:'')||'',targetPlace:stored?.targetPlace||'',defaultTimezone,defaultPlace:stored?.defaultPlace||'',sourceHours:cleanHours(stored?.sourceHours),targetHours:cleanHours(stored?.targetHours),favorites:Array.isArray(stored?.favorites)?stored.favorites.filter(f=>f&&typeof f.label==='string'&&validZone(f.zone)).slice(0,50):[],ranges:Array.isArray(stored?.ranges)?stored.ranges:[],style:stored?.style==='list'?'list':'sentence',h24:!!stored?.h24};
+  state.mapProjection=['equal-area','adaptive','focus'].includes(stored?.mapProjection)?stored.mapProjection:'focus';
   state.ranges=state.ranges.filter(r=>r && ['startDate','startTime','endDate','endTime'].every(k=>typeof r[k]==='string'));
   let anchor=today(),drag=null,idCounter=0;
   state.ranges.forEach(r=>r.id=++idCounter);

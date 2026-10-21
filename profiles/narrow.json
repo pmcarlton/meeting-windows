@@ -1,0 +1,51 @@
+{
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "source": "Asia/Tokyo",
+  "target": "Europe/Oslo",
+  "latitudes": [
+    35.69,
+    59.913
+  ],
+  "focusPreparationMs": 45.9,
+  "compileMs": 24.1,
+  "vertices": 113025,
+  "uniqueLatitudes": 2063,
+  "reports": [
+    {
+      "mode": "equal-area",
+      "frames": 84,
+      "updateMedianMs": 1.3,
+      "updateP95Ms": 3.1,
+      "buildMedianMs": 0,
+      "applyMedianMs": 0,
+      "frameMedianMs": 33.3,
+      "frameP95Ms": 33.4,
+      "framesOver50ms": 0
+    },
+    {
+      "mode": "adaptive",
+      "frames": 84,
+      "updateMedianMs": 5.9,
+      "updateP95Ms": 9.3,
+      "buildMedianMs": 1.2,
+      "applyMedianMs": 1.5,
+      "frameMedianMs": 33.3,
+      "frameP95Ms": 33.4,
+      "framesOver50ms": 0
+    },
+    {
+      "mode": "focus",
+      "frames": 84,
+      "updateMedianMs": 23.1,
+      "updateP95Ms": 29,
+      "buildMedianMs": 0,
+      "applyMedianMs": 0,
+      "frameMedianMs": 33.3,
+      "frameP95Ms": 33.4,
+      "framesOver50ms": 1
+    }
+  ]
+}

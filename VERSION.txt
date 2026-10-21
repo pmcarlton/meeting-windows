@@ -1,2 +1,2 @@
-Snapshot: 2026-10-19
-Source commit: cd65a35c80f3b150cce7782dca187bf2c90c2eaa
+Updated: 2026-10-21
+Viewport focus map, adaptive projection options, and timezone-description fixes.

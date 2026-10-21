@@ -1,0 +1,51 @@
+{
+  "viewport": {
+    "width": 1320,
+    "height": 1000
+  },
+  "source": "Asia/Tokyo",
+  "target": "America/Argentina/Ushuaia",
+  "latitudes": [
+    35.69,
+    -54.811
+  ],
+  "focusPreparationMs": 49.6,
+  "compileMs": 36.5,
+  "vertices": 113025,
+  "uniqueLatitudes": 2063,
+  "reports": [
+    {
+      "mode": "equal-area",
+      "frames": 84,
+      "updateMedianMs": 2.2,
+      "updateP95Ms": 4.2,
+      "buildMedianMs": 0,
+      "applyMedianMs": 0,
+      "frameMedianMs": 33.3,
+      "frameP95Ms": 33.4,
+      "framesOver50ms": 0
+    },
+    {
+      "mode": "adaptive",
+      "frames": 84,
+      "updateMedianMs": 8.1,
+      "updateP95Ms": 11.2,
+      "buildMedianMs": 1.3,
+      "applyMedianMs": 2.6,
+      "frameMedianMs": 33.3,
+      "frameP95Ms": 33.4,
+      "framesOver50ms": 0
+    },
+    {
+      "mode": "focus",
+      "frames": 84,
+      "updateMedianMs": 23.7,
+      "updateP95Ms": 29.4,
+      "buildMedianMs": 0,
+      "applyMedianMs": 0,
+      "frameMedianMs": 33.3,
+      "frameP95Ms": 33.4,
+      "framesOver50ms": 0
+    }
+  ]
+}
