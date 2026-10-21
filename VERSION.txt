@@ -1,2 +1,2 @@
 Updated: 2026-10-21
-Desktop scheduling layout, day-aware recipient axis, merged ranges, precise shading/focus, and availability Undo.
+Restored grid selection commits; added My/Their clock-change badges, date boundaries, and exact transition ticks.

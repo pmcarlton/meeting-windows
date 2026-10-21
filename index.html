@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#164d43"><title>Meeting windows</title>
-  <link rel="stylesheet" href="style.css?v=20261021-desktop4">
+  <link rel="stylesheet" href="style.css?v=20261021-clock-fix2">
 </head>
 <body>
 <main>
@@ -20,7 +20,7 @@
         <div class="calendar-toolbar"><div class="week-nav"><button id="prev-week" aria-label="Previous week">‹</button><button id="next-week" aria-label="Next week">›</button><label class="week-label"><span id="week-title"></span><span class="sr-only">Week containing</span><input type="date" id="week-date" min="1900-01-01" max="2100-12-25"></label></div><button id="today" class="text-button">This week</button></div>
         <div class="grid-instruction">Drag a rectangle to add times across days. Drag from a selected time to erase. Their axis follows the highlighted day.</div>
         <div class="calendar-scroll" id="calendar-scroll"><div id="calendar" class="calendar" aria-label="Availability week"></div></div>
-        <div class="calendar-key"><span><i class="key-selected"></i> Available</span><span><i class="key-away-source"></i> <span id="source-away-key">My away hours</span></span><span><i class="key-away-target"></i> <span id="target-away-key">Their away hours</span></span><span><i class="key-away-both"></i> Both away</span><span id="dst-key" hidden>▧ Clock change</span></div>
+        <div class="calendar-key"><span><i class="key-selected"></i> Available</span><span><i class="key-away-source"></i> <span id="source-away-key">My away hours</span></span><span><i class="key-away-target"></i> <span id="target-away-key">Their away hours</span></span><span><i class="key-away-both"></i> Both away</span><span id="dst-key" title="Colored day boundaries and dashed ticks mark clock changes: orange for My time, green for Their time. Hover a header badge for details." hidden><i class="key-clock-change"></i> Clock change</span></div>
       </div>
       <div class="ranges-heading"><h3>Exact ranges <span id="range-count" class="count">0</span></h3><button id="add-range" class="text-button">+ Add range</button></div>
       <p class="range-instruction">All dates and times below are in <span id="range-zone"></span>. Change the end date for an overnight range.</p>
@@ -53,5 +53,5 @@
   </div></details>
   <footer><span id="selection-summary">0 ranges selected</span><details class="data-credits"><summary>Map &amp; city data</summary><p>Timezone boundaries: <a href="https://github.com/evansiroky/timezone-boundary-builder">Timezone Boundary Builder</a> (2026e), © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors, ODbL</a>. Coastlines: <a href="https://www.naturalearthdata.com/">Natural Earth</a>, public domain. Cities: <a href="https://www.geonames.org/">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Boundaries simplified for this map. Adaptive cylindrical projection; colors show current UTC offsets.</p></details></footer>
 </main>
-<script src="time.js?v=20261021-desktop4"></script><script src="map-data.js"></script><script src="cities.js"></script><script src="app.js?v=20261021-desktop4"></script><script src="settings.js?v=20261021-desktop4"></script><script src="projection.js"></script><script src="vendor/d3-array.min.js"></script><script src="vendor/d3-geo.min.js"></script><script src="focus-projection.js?v=20261021-desktop4"></script><script src="focus-map.js?v=20261021-desktop4"></script><script src="map.js?v=20261021-desktop4"></script>
+<script src="time.js?v=20261021-clock-fix2"></script><script src="map-data.js"></script><script src="cities.js"></script><script src="app.js?v=20261021-clock-fix2"></script><script src="settings.js?v=20261021-clock-fix2"></script><script src="projection.js"></script><script src="vendor/d3-array.min.js"></script><script src="vendor/d3-geo.min.js"></script><script src="focus-projection.js?v=20261021-clock-fix2"></script><script src="focus-map.js?v=20261021-clock-fix2"></script><script src="map.js?v=20261021-clock-fix2"></script>
 </body></html>

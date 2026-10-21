@@ -33,3 +33,7 @@ body{min-width:1100px}main{max-width:1440px;padding:24px 32px 20px}.app-header{m
 .their-hour{font-size:10px}.their-corner small{font-size:9px}
 
 .hour-label{font-size:10px}.axis-midnight span,.axis-clock.multiple{font-size:9px}
+
+.calendar.has-clock-changes .day-head{height:76px}.clock-change-badge{display:block;margin:3px 2px 0;font-size:8px;line-height:11px;letter-spacing:0;white-space:nowrap;font-weight:650}.clock-source{color:#965126}.clock-target{color:#276c51}.day-head.clock-day-source,.slot.clock-day-source{border-left:2px solid #bd8056}.day-head.clock-day-target,.slot.clock-day-target{border-left:2px solid #6a9d85}.day-head.clock-day-both,.slot.clock-day-both{border-left:2px solid #938254}.clock-transition{position:absolute;left:0;right:0;height:0;z-index:1;pointer-events:none}.clock-transition.clock-day-source{border-top:2px dashed #a75e32}.clock-transition.clock-day-target{border-top:2px dashed #347b59}.clock-transition.clock-day-both{border-top:1px dashed #a75e32;box-shadow:0 1px #347b59}.key-clock-change{background:linear-gradient(90deg,#bd8056 50%,#6a9d85 50%)}
+
+.clock-change-badge{font-size:9px}

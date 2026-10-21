@@ -182,6 +182,29 @@
     if(previous<1)stops.push(`transparent ${(previous*100).toFixed(3)}% 100%`);
     return {selected:true,segments:merged,gradient:`linear-gradient(to bottom,${stops.join(',')})`};
   }
+  // Locate offset changes on the actual timeline, then place them in the
+  // appropriate date and wall-clock row of the source calendar.
+  function clockChanges(firstDay,source,target){
+    const start=stamp(civil(firstDay))-172800000,end=stamp(civil(addDays(firstDay,7)))+172800000,events=[];
+    const short=(ms,zone)=>fmt(zone,{timeZoneName:'short'}).formatToParts(ms).find(p=>p.type==='timeZoneName').value;
+    for(const [side,zone] of [['source',source],['target',target]]){
+      let previous=start,oldOffset=offset(start,zone);
+      for(let sample=start+21600000;sample<=end;sample+=21600000){
+        const newOffset=offset(sample,zone);
+        if(newOffset!==oldOffset){
+          let low=previous,high=sample;
+          while(high-low>1000){const mid=Math.floor((low+high)/2000)*1000;if(offset(mid,zone)===oldOffset)low=mid;else high=mid;}
+          const at=Math.ceil(high/1000)*1000,date=dateKey(at,source),p=parts(at,source);
+          if(date>=firstDay&&date<addDays(firstDay,7)){
+            const delta=newOffset-oldOffset,amount=Math.abs(delta),shift=(delta>0?'+':'−')+(amount%60===0?amount/60+'h':amount+'m');
+            events.push({side,zone,at,date,row:Math.floor((p.hour*60+p.minute)/30),fraction:(p.minute%30+p.second/60)/30,oldOffset,newOffset,oldShort:short(at-1000,zone),newShort:short(at,zone),oldName:zoneName(at-1000,zone),newName:zoneName(at,zone),shift});
+          }
+        }
+        previous=sample;oldOffset=newOffset;
+      }
+    }
+    return events.sort((a,b)=>a.at-b.at||a.side.localeCompare(b.side));
+  }
   function axisRows(date,source,target,h24=false){
     return Array.from({length:48},(_,row)=>{
       const wall=String(Math.floor(row/2)).padStart(2,'0')+':'+(row%2?'30':'00'),starts=candidates(date,wall,source),labels=[...new Set(starts.map(ms=>clock(ms,target,h24)))],boundaries=[];
@@ -196,7 +219,7 @@
       return {time:wall,labels,boundaries,title:hoverText(date,wall,source,target,h24)};
     });
   }
-  const api={parts,stamp,civil,offset,candidates,resolve,dateKey,addDays,clock,dateLabel,zoneName,offsetLabel,zoneLabel,gridRectangle,mergeRanges,eraseRanges,selectionState,slotSelection,axisRows,hoverText,inAwayHours,awaySegments,normalize,describe};
+  const api={parts,stamp,civil,offset,candidates,resolve,dateKey,addDays,clock,dateLabel,zoneName,offsetLabel,zoneLabel,gridRectangle,mergeRanges,eraseRanges,selectionState,slotSelection,clockChanges,axisRows,hoverText,inAwayHours,awaySegments,normalize,describe};
   root.MeetingTime=api;
   if(typeof module!=='undefined') module.exports=api;
 })(globalThis);

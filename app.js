@@ -127,8 +127,11 @@
   $('undo').onclick=undo;
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='z'&&!e.target.closest('input,textarea,select,[contenteditable="true"]')){if(history.length){e.preventDefault();undo();}}});
   function monday(date){const day=new Date(date+'T12:00:00Z').getUTCDay();return T.addDays(date,-((day+6)%7));}
+  function localFromSerial(serial){const date=new Date(serial*60000);return {date:date.toISOString().slice(0,10),time:date.toISOString().slice(11,16)};}
   function serial(date,time){return T.stamp(T.civil(date,time))/60000;}
-  const shadingCache=new Map(),axisCache=new Map();
+  const shadingCache=new Map(),axisCache=new Map(),clockChangeCache=new Map();
+  function changeTitle(e){return `${e.side==='source'?'My':'Their'} clock changes ${e.oldName} (${T.offsetLabel(e.at-1000,e.zone)}) → ${e.newName} (${T.offsetLabel(e.at,e.zone)}), ${e.shift}. My time: ${T.dateLabel(e.at,state.source)} at ${T.clock(e.at,state.source,state.h24)}. Their time: ${T.dateLabel(e.at,state.target)} at ${T.clock(e.at,state.target,state.h24)}.`;}
+  function changeClass(events){return events.length?' clock-day-'+(new Set(events.map(e=>e.side)).size>1?'both':events[0].side):'';}
   function renderTheirAxis(){
     const key=[axisDate,state.source,state.target,state.h24].join('|');
     if(!axisCache.has(key)){if(axisCache.size>100)axisCache.clear();axisCache.set(key,T.axisRows(axisDate,state.source,state.target,state.h24));}
@@ -150,8 +153,12 @@
     const shortDate=d=>new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',timeZone:'UTC'}).format(new Date(d+'T12:00:00Z'));
     $('week-title').textContent=`${shortDate(first)} – ${shortDate(days[6])}, ${first.slice(0,4)}`;
     if(!days.includes(axisDate))axisDate=anchor;
+    const changeKey=[first,state.source,state.target].join('|');
+    if(!clockChangeCache.has(changeKey)){if(clockChangeCache.size>100)clockChangeCache.clear();clockChangeCache.set(changeKey,T.clockChanges(first,state.source,state.target));}
+    const clockEvents=clockChangeCache.get(changeKey),eventsFor=date=>clockEvents.filter(e=>e.date===date);
+    $('calendar').classList.toggle('has-clock-changes',clockEvents.length>0);
     const selection=T.selectionState(state.ranges,state.source);
-    let html='<div class="day-head corner">My</div>'+days.map((d,i)=>`<div class="day-head ${d===today()?'today':''}" data-axis-date="${d}">${weekdays[i]}<strong>${+d.slice(8)}</strong></div>`).join('')+'<div class="day-head their-corner" id="their-axis-heading">Their</div>',hasDST=false;
+    let html='<div class="day-head corner">My</div>'+days.map((d,i)=>{const changes=eventsFor(d);return `<div class="day-head ${d===today()?'today':''}${changeClass(changes)}" data-axis-date="${d}">${weekdays[i]}<strong>${+d.slice(8)}</strong>${changes.map(e=>{const who=e.side==='source'?'My':'Their',names=e.oldShort+'→'+e.newShort,label=who+' '+(names.length>11?e.shift:names);return `<span class="clock-change-badge clock-${e.side}" role="img" aria-label="${escape(changeTitle(e))}" title="${escape(changeTitle(e))}">${escape(label)}</span>`;}).join('')}</div>`;}).join('')+'<div class="day-head their-corner" id="their-axis-heading">Their</div>',hasDST=false;
     for(let row=0;row<48;row++){
       const hour=Math.floor(row/2),time=String(hour).padStart(2,'0')+':'+(row%2?'30':'00');
       html+=`<div class="hour-label">${row%2?'':state.h24?String(hour).padStart(2,'0')+':00':(hour%12||12)+(hour<12?' am':' pm')}</div>`;
@@ -160,12 +167,13 @@
         if(!shadingCache.has(key)){if(shadingCache.size>6000)shadingCache.clear();shadingCache.set(key,T.awaySegments(d,time,state.source,state.target,state.sourceHours,state.targetHours));}
         const shade=shadingCache.get(key),awayLabel=shade.mask===3?'My and their away hours':shade.mask===1?'My away hours':shade.mask===2?'Their away hours':'';
         const label=`${d} ${time} in ${state.source}${!count?' — skipped time':count>1?' — repeated time':''}`;
-        const hover=T.hoverText(d,time,state.source,state.target,state.h24),coverage=T.slotSelection(d,time,state.source,selection);
-        html+=`<button class="slot ${row%2?'half':''} ${shade.mask&1?'away-source':''} ${shade.mask&2?'away-target':''} ${shade.mask===3?'away-both':''} ${coverage.selected?'selected':''} ${!count?'missing':count>1?'repeated':''}" style="--away-shading:${shade.gradient};--selection-shading:${coverage.gradient}" data-axis-date="${d}" data-away="${shade.mask}" data-serial="${serial(d,time)}" aria-label="${label}" aria-description="${escape(hover)}${awayLabel?' — '+awayLabel:''}${count>1?'. Shading includes either occurrence.':''}" aria-pressed="${coverage.selected}" title="${escape(hover)}${awayLabel?'\n'+awayLabel:''}" ${!count?'aria-disabled="true"':''}></button>`;
+        const changes=eventsFor(d),inCell=changes.filter(e=>e.row===row),hover=T.hoverText(d,time,state.source,state.target,state.h24)+(inCell.length?'\n'+inCell.map(changeTitle).join('\n'):''),coverage=T.slotSelection(d,time,state.source,selection);
+        const markers=[...new Set(inCell.map(e=>e.fraction))].map(fraction=>{const events=inCell.filter(e=>Math.abs(e.fraction-fraction)<1e-6);return `<span class="clock-transition${changeClass(events)}" style="top:${(fraction*100).toFixed(3)}%" aria-hidden="true"></span>`;}).join('');
+        html+=`<button class="slot ${row%2?'half':''} ${shade.mask&1?'away-source':''} ${shade.mask&2?'away-target':''} ${shade.mask===3?'away-both':''} ${coverage.selected?'selected':''}${changeClass(changes)} ${!count?'missing':count>1?'repeated':''}" style="--away-shading:${shade.gradient};--selection-shading:${coverage.gradient}" data-axis-date="${d}" data-away="${shade.mask}" data-serial="${serial(d,time)}" aria-label="${label}" aria-description="${escape(hover)}${awayLabel?' — '+awayLabel:''}${count>1?'. Shading includes either occurrence.':''}" aria-pressed="${coverage.selected}" title="${escape(hover)}${awayLabel?'\n'+awayLabel:''}" ${!count?'aria-disabled="true"':''}>${markers}</button>`;
       });
       html+=`<div class="their-hour" data-axis-row="${row}"></div>`;
     }
-    $('calendar').innerHTML=html;$('dst-key').hidden=!hasDST;renderTheirAxis();
+    $('calendar').innerHTML=html;$('dst-key').hidden=!hasDST&&!clockEvents.length;renderTheirAxis();
     $('availability-title').textContent=`My available times (${state.source})`;
     if(active)$('calendar').querySelector(`[data-serial="${active}"]`)?.focus({preventScroll:true});
     if(scroll)$('calendar-scroll').scrollTop=20*14;

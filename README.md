@@ -29,7 +29,7 @@ The calendar always opens to the current week in your selected timezone. It does
 
 Source: `time.js` contains conversion, formatting, and away-hour calculations; `app.js` contains controls and city search; `settings.js` manages preferences and favorites; `map.js` draws the map and handles gestures; `projection.js` contains the earlier projection blend and inverse mapping; `focus-projection.js` and `focus-map.js` implement the viewport focus mode; `style.css` contains presentation. Geographic data licenses and attribution are in `DATA.md`.
 
-Run regression checks with `node tests.cjs`, `node projection-tests.cjs`, `node focus-tests.cjs`, and `node availability-tests.cjs`. Add `?profile=1` to the URL to reveal the optional zoom comparison; it keeps the map onscreen and reports update times and animation frame intervals for the original and the adaptive and viewport-focus modes. These timings include JavaScript and synchronous browser work, not an isolated GPU measurement.
+Run regression checks with `node tests.cjs`, `node projection-tests.cjs`, `node focus-tests.cjs`, `node availability-tests.cjs`, and `node grid-tests.cjs`. Add `?profile=1` to the URL to reveal the optional zoom comparison; it keeps the map onscreen and reports update times and animation frame intervals for the original and the adaptive and viewport-focus modes. These timings include JavaScript and synchronous browser work, not an isolated GPU measurement.
 
 ## GitHub Pages updates
 
@@ -44,3 +44,7 @@ The right-hand Their axis follows the highlighted day column as the pointer or k
 Valid overlapping or adjacent selected windows merge into one exact range, including windows that join across midnight. Merging uses actual instants and preserves explicit first/second choices during repeated hours. Invalid or unresolved drafts stay separate for correction. New manually added drafts stay editable until changed. Exact controls keep focus during edits and merges. Blue cell shading covers only the selected fraction of each half-hour.
 
 Undo restores the previous availability after a selection, erase, exact-field edit, added/deleted range, or Clear all. Up to 40 availability changes are kept in memory for this session. Click Undo, or press Cmd+Z / Ctrl+Z outside text fields; native text undo remains available inside fields. Reloading or changing the input timezone clears this history. Recipient timezone and map changes are outside availability history.
+
+Clock changes in either timezone are marked on the grid: orange for My clock, green for Their clock. A badge on the affected date names the old and new abbreviations (or the shift amount when the names are long), a colored boundary distinguishes that date column, and a dashed tick marks the actual change time. Hover a badge for full timezone names, UTC offsets, the amount of the change, and its date/time for each person. Recipient changes are placed in the corresponding My date column, which may differ from their local date. These markers include permanent offset changes and fractional-hour DST shifts.
+
+The grid-commit regression check starts from no availability, adds multiple independent selections, verifies generated text, then checks merging, rectangular selection, erasing, and skipped hours.
