@@ -2,7 +2,7 @@
   'use strict';
   root.createFocusMap=function({scroll,legacySvg,getPoint,getField,choose}){
     const $=id=>document.getElementById(id),UI=MeetingUI,P=MeetingFocusProjection,T=MeetingTime,ns='http://www.w3.org/2000/svg';
-    let active=false,zoom=1,center={lon:getPoint('target')?.[1]||0,lat:0},width=scroll.clientWidth,height=scroll.clientHeight,frame=0,hovered=null,savedScroll=null;
+    let active=false,zoom=1,minimumZoom=1,center={lon:getPoint('target')?.[1]||0,lat:0},width=scroll.clientWidth,height=scroll.clientHeight,frame=0,hovered=null,savedScroll=null;
     let projection=null,path=null,features=null,land=null,groups=[],cityNodes=[],selectionNodes=[],lastRenderMs=0,prepareMs=0,pending=null,lastPeriod=-1,lastZones='';
     const svg=document.createElementNS(ns,'svg');svg.id='focus-map';svg.setAttribute('role','img');svg.setAttribute('aria-label','Viewport-centered world timezones. The center line has undistorted local scale.');svg.style.display='none';scroll.append(svg);
     function el(name,attrs={},parent=svg){const e=document.createElementNS(ns,name);for(const [key,value] of Object.entries(attrs))e.setAttribute(key,value);parent.append(e);return e;}
@@ -66,21 +66,23 @@
       }
       const a=$('source-map-badge'),b=$('target-map-badge');if(!a.hidden&&!b.hidden&&Math.abs(parseFloat(a.style.left)-parseFloat(b.style.left))<48){const mid=P.clamp((parseFloat(a.style.left)+parseFloat(b.style.left))/2,46,width-46);a.style.left=mid-23+'px';b.style.left=mid+23+'px';}
       crosshair.setAttribute('transform',`translate(${width/2} ${height/2})`);
-      $('map-zoom-level').textContent=Math.round(zoom*100)+'%';$('map-zoom-in').disabled=zoom>=4;$('map-zoom-out').disabled=zoom<=1;
+      $('map-zoom-level').textContent=Math.round(zoom*100)+'%';$('map-zoom-in').disabled=zoom>=4;$('map-zoom-out').disabled=zoom<=minimumZoom+1e-9;
       svg.dataset.centerLatitude=center.lat.toFixed(6);svg.dataset.centerLongitude=center.lon.toFixed(6);svg.dataset.zoom=zoom.toFixed(6);
+      svg.dataset.roll=(center.roll||0).toFixed(6);
       svg.dataset.centerScale=(P.RADIUS*zoom).toFixed(4);
-      const latitude=Math.abs(center.lat).toFixed(1)+(center.lat<0?'°S':'°N');centerLabel.textContent=`Center: ${latitude} · ${Math.abs(center.lon).toFixed(1)}${center.lon<0?'°W':'°E'}`;svg.setAttribute('aria-label',`Viewport-centered world timezones. Center latitude ${latitude}. Drag in any direction; both poles can be centered.`);
+      const latitude=Math.abs(center.lat).toFixed(1)+(center.lat<0?'°S':'°N');centerLabel.textContent=`Center: ${latitude} · ${Math.abs(center.lon).toFixed(1)}${center.lon<0?'°W':'°E'}${Math.abs(center.roll||0)>.01?' · rotated':''}`;svg.setAttribute('aria-label',`Viewport-centered world timezones. Center latitude ${latitude}. Drag in any direction; both poles can be centered.`);
       lastRenderMs=performance.now()-start;
     }
     function schedule(){if(!frame)frame=requestAnimationFrame(()=>{frame=0;if(pending){const work=pending;pending=null;work();}render();});}
     function localAt(p,z=zoom){return P.raw.invert((p.x-width/2)/(P.RADIUS*z),-(p.y-height/2)/(P.RADIUS*z));}
-    function geoAt(p){configure();const raw=localAt(p);return d3.geoRotation([-center.lon,-center.lat,0]).invert(raw.map(v=>v/P.DEG));}
-    function anchored(point,p,z){const next=P.anchored(center,point,localAt(p,z));if(next)center={lon:next.lon,lat:next.lat};}
+    function geoAt(p){configure();const raw=localAt(p);return d3.geoRotation([-center.lon,-center.lat,center.roll||0]).invert(raw.map(v=>v/P.DEG));}
+    function anchored(point,p,z){const local=d3.geoRotation([0,0,center.roll||0]).invert(localAt(p,z).map(v=>v/P.DEG)).map(v=>v*P.DEG),next=P.anchored(center,point,local);if(next)center={lon:next.lon,lat:next.lat,roll:center.roll||0};}
     function cancelPending(){if(frame)cancelAnimationFrame(frame);frame=0;pending=null;}
-    function setZoom(value,p,anchor){cancelPending();if(!active)return;if(!p)p={x:width/2,y:height/2};const geographic=anchor||geoAt(p);zoom=P.clamp(value,1,4);anchored(geographic,p,zoom);render();}
+    function setZoom(value,p,anchor){cancelPending();if(!active)return;if(!p)p={x:width/2,y:height/2};const geographic=anchor||geoAt(p);zoom=P.clamp(value,minimumZoom,4);anchored(geographic,p,zoom);render();}
     function panPixels(dx,dy){
-      center.lat=P.clamp(center.lat+dy/(P.RADIUS*zoom)/P.DEG,-90,90);
-      center.lon=P.wrap(center.lon-dx/(P.RADIUS*zoom*Math.max(.12,Math.cos(center.lat*P.DEG)))/P.DEG);schedule();
+      const roll=(center.roll||0)*P.DEG,east=dx*Math.cos(roll)-dy*Math.sin(roll),north=dx*Math.sin(roll)+dy*Math.cos(roll);
+      center.lat=P.clamp(center.lat+north/(P.RADIUS*zoom)/P.DEG,-90,90);
+      center.lon=P.wrap(center.lon-east/(P.RADIUS*zoom*Math.max(.12,Math.cos(center.lat*P.DEG)))/P.DEG);schedule();
     }
     function panTo(field){cancelPending();const point=getPoint(field);if(point){center={lon:point[1],lat:zoom===1?0:point[0]};render();}}
     function resize(){if(!active)return;width=scroll.clientWidth;height=scroll.clientHeight;svg.setAttribute('viewBox',`0 0 ${width} ${height}`);background.setAttribute('width',width);background.setAttribute('height',height);render();}
@@ -102,7 +104,7 @@
       if(!active)return;const p=point(e);
       if(pointers.has(e.pointerId)){
         pointers.set(e.pointerId,p);
-        if(pinch&&pointers.size>=2){const [a,b]=[...pointers.values()],mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},value=P.clamp(pinch.zoom*Math.hypot(a.x-b.x,a.y-b.y)/pinch.distance,1,4),anchor=pinch.anchor;pending=()=>{zoom=value;anchored(anchor,mid,value);};schedule();suppressUntil=Date.now()+700;stop(e);}
+        if(pinch&&pointers.size>=2){const [a,b]=[...pointers.values()],mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},value=P.clamp(pinch.zoom*Math.hypot(a.x-b.x,a.y-b.y)/pinch.distance,minimumZoom,4),anchor=pinch.anchor;pending=()=>{zoom=value;anchored(anchor,mid,value);};schedule();suppressUntil=Date.now()+700;stop(e);}
         else if(dragging&&(dragging.moved||Math.hypot(p.x-dragging.start.x,p.y-dragging.start.y)>4)){
           dragging.moved=true;const dx=p.x-dragging.last.x,dy=p.y-dragging.last.y;dragging.last=p;panPixels(dx,dy);scroll.setPointerCapture(e.pointerId);suppressUntil=Date.now()+700;scroll.classList.add('is-panning');stop(e);
         }else e.stopImmediatePropagation();
@@ -117,16 +119,21 @@
     svg.addEventListener('click',e=>{const node=e.target.closest('[data-zone]');if(node){clearHover();choose({zone:node.dataset.zone,label:UI.city(node.dataset.zone)});}});
     scroll.addEventListener('wheel',e=>{
       if(!active)return;stop(e);clearHover();
-      if(e.ctrlKey||e.metaKey){const p=point(e),anchor=geoAt(p),value=P.clamp((pending?.zoomValue||zoom)*Math.exp(-e.deltaY*.01),1,4);const action=()=>{zoom=value;anchored(anchor,p,value);};action.zoomValue=value;pending=action;schedule();}
+      if(e.ctrlKey||e.metaKey){const p=point(e),anchor=geoAt(p),value=P.clamp((pending?.zoomValue||zoom)*Math.exp(-e.deltaY*.01),minimumZoom,4);const action=()=>{zoom=value;anchored(anchor,p,value);};action.zoomValue=value;pending=action;schedule();}
       else panPixels(e.shiftKey?e.deltaY:e.deltaX,e.shiftKey?0:-e.deltaY);
     },{capture:true,passive:false});
     let gesture=null;
     scroll.addEventListener('gesturestart',e=>{if(!active)return;stop(e);if(pointers.size>=2)return;const p=point(e);gesture={zoom,anchor:geoAt(p)};},{capture:true,passive:false});
-    scroll.addEventListener('gesturechange',e=>{if(!active||!gesture)return;stop(e);if(pointers.size>=2)return;const p=point(e),value=P.clamp(gesture.zoom*e.scale,1,4),anchor=gesture.anchor;pending=()=>{zoom=value;anchored(anchor,p,value);};schedule();},{capture:true,passive:false});
+    scroll.addEventListener('gesturechange',e=>{if(!active||!gesture)return;stop(e);if(pointers.size>=2)return;const p=point(e),value=P.clamp(gesture.zoom*e.scale,minimumZoom,4),anchor=gesture.anchor;pending=()=>{zoom=value;anchored(anchor,p,value);};schedule();},{capture:true,passive:false});
     scroll.addEventListener('gestureend',e=>{if(active){stop(e);gesture=null;}},{capture:true,passive:false});
-    scroll.addEventListener('keydown',e=>{if(!active||e.target!==scroll)return;const step=60;if(e.key==='ArrowUp')panPixels(0,step);else if(e.key==='ArrowDown')panPixels(0,-step);else if(e.key==='ArrowLeft')panPixels(step,0);else if(e.key==='ArrowRight')panPixels(-step,0);else if(e.key==='Home'){center.lat=0;render();}else return;stop(e);},{capture:true});
+    scroll.addEventListener('keydown',e=>{if(!active||e.target!==scroll)return;const step=60;if(e.key==='ArrowUp')panPixels(0,step);else if(e.key==='ArrowDown')panPixels(0,-step);else if(e.key==='ArrowLeft')panPixels(step,0);else if(e.key==='ArrowRight')panPixels(-step,0);else if(e.key==='Home'){center.lat=0;center.roll=0;render();}else return;stop(e);},{capture:true});
     document.addEventListener('favoriteschange',()=>{if(active){buildPins();render();}});new ResizeObserver(resize).observe(scroll);
-    const api={get active(){return active;},get zoom(){return zoom;},enable,setZoom,panTo,update:()=>render(),west:()=>panPixels(150,0),east:()=>panPixels(-150,0),reset:()=>{cancelPending();zoom=1;center.lat=0;center.lon=getPoint(getField())?.[1]||0;render();},metrics:()=>({prepareMs,lastRenderMs,center:{...center},zoom}),profileMove:(lon,lat,z)=>{center={lon,lat};zoom=z;render();return lastRenderMs;}};
+    function alignCities(result){
+      if(!result.available||!active)return;cancelPending();clearHover();center={...result.center};
+      const fit=Math.max(.1,(width-64)/(P.RADIUS*result.angle));minimumZoom=Math.min(1,fit);zoom=Math.min(4,fit);render();
+      $('map-hint').textContent='Cities aligned · My city on the left, their city on the right. Reset restores north-up.';
+    }
+    const api={get active(){return active;},get zoom(){return zoom;},enable,setZoom,panTo,alignCities,update:()=>render(),west:()=>panPixels(150,0),east:()=>panPixels(-150,0),reset:()=>{cancelPending();zoom=1;minimumZoom=1;center.lat=0;center.roll=0;center.lon=getPoint(getField())?.[1]||0;render();},metrics:()=>({prepareMs,lastRenderMs,center:{...center},zoom}),profileMove:(lon,lat,z,roll=0)=>{center={lon,lat,roll};zoom=z;render();return lastRenderMs;}};
     return api;
   };
 })(globalThis);

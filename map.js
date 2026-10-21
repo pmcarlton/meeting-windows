@@ -88,7 +88,10 @@
   const knownPoints={UTC:[0,0]};
   for(const c of CityData)if(!knownPoints[UI.canonical(c[4])])knownPoints[UI.canonical(c[4])]=[c[5],c[6]];
   let selectedPoints={};
-  for(const f of ['source','target']){const c=CityData.find(c=>c[0]===UI.state[f+'Place']&&UI.canonical(c[4])===UI.canonical(UI.state[f]));if(c)selectedPoints[f]=[c[5],c[6]];}
+  for(const f of ['source','target']){const c=UI.state[f+'City'];if(c)selectedPoints[f]=[c.lat,c.lon];}
+  const getCityPoint=f=>selectedPoints[f]||null;
+  function alignment(){return MeetingFocusProjection.alignment(getCityPoint('source'),getCityPoint('target'));}
+  function updateAlignmentButton(){const result=alignment();$('map-align').disabled=!result.available;$('map-align').title=result.available?'Center the shorter city-to-city arc horizontally in Viewport focus.':result.reason;}
   function getPoint(f){return selectedPoints[f]||knownPoints[UI.canonical(UI.state[f])];}
   function redraw(){
     regionPaths.forEach(e=>{const z=UI.canonical(e.dataset.zone);e.classList.toggle('is-source',z===UI.canonical(UI.state.source));e.classList.toggle('is-target',z===UI.canonical(UI.state.target));});
@@ -178,10 +181,12 @@
   window.addEventListener('blur',clearHover);
   document.addEventListener('visibilitychange',clearHover);
   scroll.addEventListener('scroll',()=>{if(focus?.active)return;clearHover();updateBadgeRail();},{passive:true});
-  document.addEventListener('zonechange',e=>{const d=e.detail;if(Number.isFinite(d.lat)&&Number.isFinite(d.lon))selectedPoints[d.field]=[d.lat,d.lon];else delete selectedPoints[d.field];if(focus?.active){focus.panTo(d.field);return;}updateProjection();redraw();panTo(d.field);$('map-hint').textContent=`Click a region or city to set ${field==='source'?'my':'their'} timezone.`;});
+  document.addEventListener('zonechange',e=>{const d=e.detail;if(Number.isFinite(d.lat)&&Number.isFinite(d.lon))selectedPoints[d.field]=[d.lat,d.lon];else delete selectedPoints[d.field];updateAlignmentButton();if(focus?.active){focus.panTo(d.field);return;}updateProjection();redraw();panTo(d.field);$('map-hint').textContent=`Click a region or city to set ${field==='source'?'my':'their'} timezone.`;});
   new ResizeObserver(()=>{if(focus?.active)return;const next=scroll.clientWidth/4;if(Math.abs(next-overlap)<5)return;overlap=next;world.setAttribute('transform',`translate(${overlap} 0)`);svg.setAttribute('viewBox',`0 0 ${WORLD+2*overlap} ${P.height(blend)}`);svg.style.width=(WORLD+2*overlap)*zoom+'px';panTo(field,'instant');}).observe(scroll);
   focus=createFocusMap({scroll,legacySvg:svg,getPoint,getField:()=>field,choose:select});
   focus.enable(projectionMode.value==='focus');
+  updateAlignmentButton();
+  $('map-align').onclick=()=>{const result=alignment();if(!result.available)return;if(!focus.active){projectionMode.value='focus';UI.state.mapProjection='focus';UI.save();clearHover();focus.enable(true);}focus.alignCities(result);};
   if(new URLSearchParams(location.search).has('profile')){
     const panel=document.createElement('details');panel.className='projection-profile';panel.open=true;
     panel.innerHTML='<summary>Projection profiling</summary><button id="profile-zoom">Run zoom comparison</button><pre id="profile-result" role="status">Ready</pre>';
@@ -201,7 +206,7 @@
           reports.push({mode,frames:frames.length,updateMedianMs:+quantile(durations,.5).toFixed(2),updateP95Ms:+quantile(durations,.95).toFixed(2),buildMedianMs:+quantile(build,.5).toFixed(2),applyMedianMs:+quantile(apply,.5).toFixed(2),frameMedianMs:+quantile(frames,.5).toFixed(2),frameP95Ms:+quantile(frames,.95).toFixed(2),framesOver50ms:frames.filter(v=>v>50).length});
           output.textContent=JSON.stringify({viewport:{width:innerWidth,height:innerHeight},source:UI.state.source,target:UI.state.target,latitudes:selectedLatitudes(),focusPreparationMs:+focus.metrics().prepareMs.toFixed(2),compileMs:+compileMs.toFixed(2),vertices:projector.vertexCount,uniqueLatitudes:projector.uniqueLatitudes,reports},null,2);
         }
-      }finally{projectionMode.value=savedMode;focus.enable(savedMode==='focus');if(focus.active)focus.profileMove(savedFocus.center.lon,savedFocus.center.lat,savedFocus.zoom);else setZoom(savedZoom);scroll.scrollLeft=savedLeft;scroll.scrollTop=savedTop;window.scrollTo(0,savedPageY);button.disabled=false;}
+      }finally{projectionMode.value=savedMode;focus.enable(savedMode==='focus');if(focus.active)focus.profileMove(savedFocus.center.lon,savedFocus.center.lat,savedFocus.zoom,savedFocus.center.roll||0);else setZoom(savedZoom);scroll.scrollLeft=savedLeft;scroll.scrollTop=savedTop;window.scrollTo(0,savedPageY);button.disabled=false;}
     };
   }
   if(!focus.active){setZoom(1);redraw();requestAnimationFrame(()=>panTo('target','instant'));}

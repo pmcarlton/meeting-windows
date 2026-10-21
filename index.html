@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#164d43"><title>Meeting windows</title>
-  <link rel="stylesheet" href="style.css?v=20261021-urumqi">
+  <link rel="stylesheet" href="style.css?v=20261021-align">
 </head>
 <body>
 <main>
   <header class="app-header"><div class="brand"><span class="brand-icon" aria-hidden="true">◷</span><h1>Meeting windows</h1></div><span class="local-note">Saved in this browser</span></header>
   <section class="map-card" aria-label="Timezone map">
-    <div class="map-toolbar"><h2>Timezone map</h2><div class="map-controls"><div class="map-mode" role="group" aria-label="Map changes timezone for"><button id="map-source" aria-pressed="false">Me</button><button id="map-target" aria-pressed="true">Them</button></div><button id="map-left" aria-label="Scroll map west">←</button><button id="map-right" aria-label="Scroll map east">→</button><span class="map-divider"></span><button id="map-zoom-out" aria-label="Zoom map out">−</button><button id="map-zoom-in" aria-label="Zoom map in">+</button><button id="map-reset">Reset</button><output id="map-zoom-level" aria-label="Map zoom">100%</output></div></div>
+    <div class="map-toolbar"><h2>Timezone map</h2><div class="map-controls"><div class="map-mode" role="group" aria-label="Map changes timezone for"><button id="map-source" aria-pressed="false">Me</button><button id="map-target" aria-pressed="true">Them</button></div><button id="map-left" aria-label="Scroll map west">←</button><button id="map-right" aria-label="Scroll map east">→</button><span class="map-divider"></span><button id="map-zoom-out" aria-label="Zoom map out">−</button><button id="map-zoom-in" aria-label="Zoom map in">+</button><button id="map-align" disabled title="Choose a city for both My timezone and Their timezone.">Align Cities</button><button id="map-reset">Reset</button><output id="map-zoom-level" aria-label="Map zoom">100%</output></div></div>
     <div class="map-scroll" id="map-scroll" tabindex="0" aria-label="Timezone map. Scroll left or right, then click a region or city."><svg id="world-map" viewBox="0 0 1440 240" width="1440" height="240" aria-label="World timezones with latitude spacing that expands on zoom"></svg></div>
     <div id="map-badge-rail" class="map-badge-rail" aria-label="Selected timezones"><span id="source-map-badge" class="map-bottom-badge badge-me">ME</span><span id="target-map-badge" class="map-bottom-badge badge-them">THEM</span></div>
     <div class="map-caption"><span id="map-hint" role="status">Click a region or city to set their timezone.</span></div>
@@ -53,5 +53,5 @@
   </div>
   <footer><span id="selection-summary">0 ranges selected</span><details class="data-credits"><summary>Map &amp; city data</summary><p>Timezone boundaries: <a href="https://github.com/evansiroky/timezone-boundary-builder">Timezone Boundary Builder</a> (2026e), © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors, ODbL</a>. Coastlines: <a href="https://www.naturalearthdata.com/">Natural Earth</a>, public domain. Cities: <a href="https://www.geonames.org/">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Boundaries simplified for this map. Adaptive cylindrical projection; colors show current UTC offsets.</p></details></footer>
 </main>
-<script src="time.js"></script><script src="map-data.js"></script><script src="cities.js"></script><script src="app.js"></script><script src="settings.js"></script><script src="projection.js"></script><script src="vendor/d3-array.min.js"></script><script src="vendor/d3-geo.min.js"></script><script src="focus-projection.js"></script><script src="focus-map.js"></script><script src="map.js"></script>
+<script src="time.js"></script><script src="map-data.js"></script><script src="cities.js"></script><script src="app.js?v=20261021-align"></script><script src="settings.js?v=20261021-align"></script><script src="projection.js"></script><script src="vendor/d3-array.min.js"></script><script src="vendor/d3-geo.min.js"></script><script src="focus-projection.js?v=20261021-align"></script><script src="focus-map.js?v=20261021-align"></script><script src="map.js?v=20261021-align"></script>
 </body></html>

@@ -3,7 +3,7 @@
   const UI=MeetingUI,state=UI.state,$=id=>document.getElementById(id);
   const message=text=>{$('settings-status').textContent=text;};
   function setDefault(entry){
-    state.defaultTimezone=entry.zone;state.defaultPlace=entry.label;
+    state.defaultTimezone=entry.zone;state.defaultPlace=entry.label;state.defaultCity=UI.citySelection(entry);
     UI.chooseZone('source',entry);message('Default timezone saved.');
   }
   UI.setupZone('default','source',setDefault,()=>state.defaultPlace||UI.city(state.defaultTimezone));

@@ -5,7 +5,22 @@
   const wrap=lon=>((lon+180)%360+360)%360-180;
   function raw(lon,lat){return [lon,Math.tanh(K*lat)/K];}
   raw.invert=(x,y)=>[x,Math.atanh(clamp(K*y,-Math.tanh(K*Math.PI/2),Math.tanh(K*Math.PI/2)))/K];
-  function camera(projection,center,zoom,width,height){return projection.rotate([-center.lon,-center.lat,0]).scale(RADIUS*zoom).translate([width/2,height/2]);}
+  function camera(projection,center,zoom,width,height){return projection.rotate([-center.lon,-center.lat,center.roll||0]).scale(RADIUS*zoom).translate([width/2,height/2]);}
+  // The midpoint of the shorter arc becomes the camera center. Rotate its
+  // tangent so My city is left and Their city is right, with both at latitude 0.
+  function alignment(a,b){
+    const valid=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=90&&Math.abs(p[1])<=180;
+    if(!valid(a)||!valid(b))return {available:false,reason:'Choose a city for both My timezone and Their timezone.'};
+    const vector=([lat,lon])=>[Math.cos(lat*DEG)*Math.cos(lon*DEG),Math.cos(lat*DEG)*Math.sin(lon*DEG),Math.sin(lat*DEG)];
+    const u=vector(a),v=vector(b),sum=u.map((x,i)=>x+v[i]),length=Math.hypot(...sum);
+    if(length<1e-6)return {available:false,reason:'Opposite cities do not define a unique shorter great-circle arc.'};
+    const cross=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],sine=Math.hypot(...cross);
+    if(sine<1e-7)return {available:false,reason:'These cities are too close to define an alignment.'};
+    const m=sum.map(x=>x/length),lon=Math.atan2(m[1],m[0]),lat=Math.atan2(m[2],Math.hypot(m[0],m[1]));
+    const east=-Math.sin(lon)*v[0]+Math.cos(lon)*v[1];
+    const north=-Math.sin(lat)*Math.cos(lon)*v[0]-Math.sin(lat)*Math.sin(lon)*v[1]+Math.cos(lat)*v[2];
+    return {available:true,center:{lon:lon/DEG,lat:lat/DEG,roll:Math.atan2(-north,east)/DEG},angle:Math.atan2(sine,u.reduce((sum,x,i)=>sum+x*v[i],0))};
+  }
   function decode(path,d3){
     const rings=path.split('M').slice(1).map(part=>{
       const xy=[...part.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)].map(m=>[+m[1],+m[2]]);
@@ -35,5 +50,5 @@
     }
     options.sort((a,b)=>a.cost-b.cost);return options[0]||null;
   }
-  const api={DEG,RADIUS,K,raw,camera,decode,anchored,wrap,clamp};root.MeetingFocusProjection=api;if(typeof module!=='undefined')module.exports=api;
+  const api={DEG,RADIUS,K,raw,camera,alignment,decode,anchored,wrap,clamp};root.MeetingFocusProjection=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);

@@ -19,6 +19,11 @@
   const city=z=>z==='UTC'?'UTC':z.split('/').at(-1).replaceAll('_',' ');
   const canonicalCache=new Map();
   const canonical=z=>{if(!canonicalCache.has(z)){try{canonicalCache.set(z,new Intl.DateTimeFormat('en',{timeZone:z}).resolvedOptions().timeZone);}catch{canonicalCache.set(z,z);}}return canonicalCache.get(z);};
+  // Keep actual city coordinates separate from a timezone's display name.
+  const citySelection=(entry,zone=entry?.zone)=>entry&&typeof entry.zone==='string'&&validZone(entry.zone)&&Number.isFinite(entry.lat)&&Math.abs(entry.lat)<=90&&Number.isFinite(entry.lon)&&Math.abs(entry.lon)<=180&&canonical(entry.zone)===canonical(zone)?{zone,label:entry.label,lat:entry.lat,lon:entry.lon}:null;
+  state.defaultCity=citySelection(stored?.defaultCity,state.defaultTimezone);
+  state.sourceCity=state.defaultCity||(!stored?.defaultPlace&&state.source===stored?.source?citySelection(stored?.sourceCity,state.source):null);
+  state.targetCity=citySelection(stored?.targetCity,state.target);
   const countryNames=new Intl.DisplayNames(['en'],{type:'region'}),norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[_−]/g,' ').replace(/\s+/g,' ').trim();
   const cityEntries=(window.CityData||[]).filter(c=>validZone(c[4])).map(c=>({zone:c[4],label:c[0],country:c[2],detail:`${countryNames.of(c[2])}${['US','CA'].includes(c[2])?' · '+c[3]:''} · ${c[4]}`,lat:c[5],lon:c[6],key:norm(c[0]+' '+c[1]+' '+countryNames.of(c[2])+' '+c[4]),name:norm(c[0]),ascii:norm(c[1])}));
   const defaultCities=[['Honolulu','US'],['Los Angeles','US'],['New York City','US'],['Chicago','US'],['Mexico City','MX'],['São Paulo','BR'],['Buenos Aires','AR'],['London','GB'],['Paris','FR'],['Cairo','EG'],['Cape Town','ZA'],['Dubai','AE'],['Mumbai','IN'],['Kathmandu','NP'],['Singapore','SG'],['Bangkok','TH'],['Beijing','CN'],['Tokyo','JP'],['Seoul','KR'],['Sydney','AU'],['Perth','AU'],['Auckland','NZ']];
@@ -30,12 +35,12 @@
   state.favoritesVersion=2;
   const zoneEntries=zones.filter(validZone).map(z=>{const names=[T.zoneName(Date.UTC(2026,0,15),z),T.zoneName(Date.UTC(2026,6,15),z)];const short=[0,6].map(m=>new Intl.DateTimeFormat('en-US',{timeZone:z,timeZoneName:'short'}).formatToParts(Date.UTC(2026,m,15)).find(p=>p.type==='timeZoneName').value);return {zone:z,label:city(z),detail:`${z} · ${names[0]}`,key:norm([z,aliases[z]||'',...names,...short,T.offsetLabel(Date.now(),z)].join(' '))};});
   function chooseZone(field,entry){
-    state[field]=entry.zone;state[field+'Place']=entry.label||city(entry.zone);
+    state[field]=entry.zone;state[field+'Place']=entry.label||city(entry.zone);state[field+'City']=citySelection(entry);
     const which=field==='source'?'source':'target';$(which+'-zone').value=state[field+'Place'];$(which+'-options').hidden=true;$(which+'-zone').setAttribute('aria-expanded','false');
     if(field==='source'){anchor=today();$('week-date').value=anchor;renderRanges();}renderCalendar(field==='source');renderOutput();save();
     document.dispatchEvent(new CustomEvent('zonechange',{detail:{field,...entry}}));
   }
-  window.MeetingUI={state,chooseZone,city,canonical,setupZone,save,favoriteKey,refreshCalendar:renderCalendar};
+  window.MeetingUI={state,chooseZone,city,citySelection,canonical,setupZone,save,favoriteKey,refreshCalendar:renderCalendar};
   function save(){try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch{$('copy-status').textContent='Browser storage unavailable; keep this tab open.';}}
   function escape(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function setupZone(which,field,onPick=null,getValue=null,{cityOnly=false}={}){

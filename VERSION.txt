@@ -1,2 +1,2 @@
 Updated: 2026-10-21
-Viewport focus map, adaptive projection options, and timezone-description fixes.
+Viewport focus, great-circle city alignment, uniform Urumqi base fill, and timezone-description fixes.
