@@ -220,12 +220,14 @@
   grid.addEventListener('click',e=>{if(e.detail!==0 && e.pointerType!=='touch')return;const b=e.target.closest('[data-serial]');if(!b || b.getAttribute('aria-disabled')==='true')return;drag={start:+b.dataset.serial,end:+b.dataset.serial,erase:b.classList.contains('selected')};commitDrag();});
   function setWeek(date){try{T.civil(date);anchor=date;axisDate=date;}catch{return;}$('week-date').value=anchor;renderCalendar(true);}
   $('week-date').value=anchor;$('week-date').onchange=e=>setWeek(e.target.value);$('prev-week').onclick=()=>setWeek(T.addDays(anchor,-7));$('next-week').onclick=()=>setWeek(T.addDays(anchor,7));$('today').onclick=()=>setWeek(today());
+  let myOutput='';
   function renderOutput(){
     const now=Date.now();$('source-detail').textContent=`${state.source} · ${T.offsetLabel(now,state.source)} now`;$('target-detail').textContent=`${state.target} · ${T.offsetLabel(now,state.target)} now`;
-    $('error').hidden=true;$('error').textContent='';$('copy-status').textContent='';
+    $('error').hidden=true;$('error').textContent='';$('copy-status').textContent='';$('copy-fallback').hidden=true;
     let intervals=[];
-    try{intervals=T.normalize(state.ranges,state.source);$('output').value=T.describe(intervals,state.target,{h24:state.h24,list:state.style==='list'});$('copy').disabled=!intervals.length;}
-    catch(e){$('output').value='';$('error').textContent=e.message;$('error').hidden=false;$('copy').disabled=true;}
+    myOutput='';
+    try{intervals=T.normalize(state.ranges,state.source);const options={h24:state.h24,list:state.style==='list'};$('output').value=T.describe(intervals,state.target,options);myOutput=T.describe(intervals,state.source,{...options,possessive:'my'});$('copy').disabled=$('copy-my').disabled=!intervals.length;}
+    catch(e){$('output').value='';myOutput='';$('error').textContent=e.message;$('error').hidden=false;$('copy').disabled=$('copy-my').disabled=true;}
     $('preview').innerHTML=intervals.map(({start,end})=>{
       const sameDate=T.dateKey(start,state.target)===T.dateKey(end,state.target),sameOffset=T.zoneLabel(start,state.target)===T.zoneLabel(end,state.target);
       return `<div class="preview-range"><strong>${escape(T.dateLabel(start,state.target))}</strong><span>${escape(T.clock(start,state.target,state.h24))} → ${sameDate?'':escape(T.dateLabel(end,state.target))+' · '}${escape(T.clock(end,state.target,state.h24))}</span><small>${escape(T.zoneLabel(start,state.target))}${sameOffset?'':' → '+escape(T.zoneLabel(end,state.target))}</small></div>`;
@@ -235,10 +237,18 @@
   }
   $('output-style').value=state.style;$('clock-style').value=state.h24?'24':'12';
   $('output-style').onchange=e=>{state.style=e.target.value;renderOutput();save();};$('clock-style').onchange=e=>{state.h24=e.target.value==='24';renderCalendar();renderOutput();save();};
-  $('copy').onclick=async()=>{
-    try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText($('output').value);else throw Error();$('copy-status').textContent='Copied.';}
-    catch{$('output').focus();$('output').select();try{if(!document.execCommand('copy'))throw Error();$('copy-status').textContent='Copied.';}catch{$('copy-status').textContent='Text selected. Press ⌘C or Ctrl+C to copy.';}}
-  };
+  async function copyAvailability(field){
+    const text=field==='source'?myOutput:$('output').value,label=field==='source'?'My':'Their';if(!text)return;
+    $('copy-fallback').hidden=true;
+    try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);else throw Error();$('copy-status').textContent=label+' times copied.';}
+    catch{
+      $('copy-fallback-label').textContent=`${label} available times (${state[field]})`;$('copy-fallback').hidden=false;
+      const fallback=$('copy-fallback-text');fallback.value=text;fallback.focus();fallback.select();
+      try{if(!document.execCommand('copy'))throw Error();$('copy-fallback').hidden=true;$('copy-status').textContent=label+' times copied.';}
+      catch{$('copy-status').textContent=label+' times selected. Press ⌘C or Ctrl+C to copy.';}
+    }
+  }
+  $('copy').onclick=()=>copyAvailability('target');$('copy-my').onclick=()=>copyAvailability('source');
   function update(){renderRanges();renderCalendar();renderOutput();save();}
   mergeRanges();renderRanges();renderCalendar(true);renderOutput();
 })();

@@ -94,7 +94,7 @@
     for (const r of resolved) { const prev=merged.at(-1); if(prev && r.start<=prev.end) prev.end=Math.max(prev.end,r.end); else merged.push({...r}); }
     return merged;
   }
-  function describe(intervals,zone,{h24=false,list=false}={}) {
+  function describe(intervals,zone,{h24=false,list=false,possessive='your'}={}) {
     if(!intervals.length) return '';
     const endpoints=intervals.flatMap(r=>[r.start,r.end]);
     const years=[...new Set(endpoints.map(ms=>parts(ms,zone).year))];
@@ -126,7 +126,7 @@
     const clauses=groups.map(g=>{
       const currentZone=zoneLabel(g.start,zone),label=currentZone!==previousZone?'('+zoneText(g.start)+') ':'';
       previousZone=zoneLabel(g.end,zone);
-      return `your ${label}${g.text || `${g.label}, ${g.ranges.join(' or ')}`}`;
+      return `${possessive} ${label}${g.text || `${g.label}, ${g.ranges.join(' or ')}`}`;
     });
     const yearSuffix=years.length===1?` [${years[0]}]`:'';
     return (list?clauses.map(s=>'• '+s).join('\n'):clauses.join('; or '))+yearSuffix;

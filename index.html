@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#283341"><title>Meeting windows</title>
-  <link rel="stylesheet" href="style.css?v=20261021-city-restore">
+  <link rel="stylesheet" href="style.css?v=20261021-copy-my">
 </head>
 <body>
 <main>
@@ -31,8 +31,9 @@
       <div class="output-options"><label for="output-style">Format<select id="output-style"><option value="sentence">Sentence piece</option><option value="list">List</option></select></label></div>
       <label class="sr-only" for="output">Availability in their timezone</label><textarea id="output" readonly placeholder="Select your available times to generate text in their timezone."></textarea>
       <div id="error" class="error" role="alert" hidden></div>
-      <button id="copy" class="primary" disabled><span aria-hidden="true">▣</span> Copy text</button>
+      <div class="copy-buttons"><button id="copy" class="primary" disabled title="Copy availability in Their timezone">Copy their times</button><button id="copy-my" class="copy-my" disabled title="Copy availability in My timezone">Copy my times</button></div>
       <div id="copy-status" class="copy-status" role="status" aria-live="polite"></div>
+      <div id="copy-fallback" class="copy-fallback" hidden><label id="copy-fallback-label" for="copy-fallback-text"></label><textarea id="copy-fallback-text" readonly></textarea></div>
       <div class="conversion-preview"><h3>In their timezone</h3><div id="preview"><p class="muted">No ranges selected.</p></div></div>
       <details class="help"><summary>Clock changes &amp; saved times</summary><p>Dates use the rules for the selected timezone, including daylight saving. Skipped times need a correction; repeated times let you choose the first or second occurrence. UTC offsets in the text distinguish them.</p><p>Changing your timezone keeps the dates and clock times you entered. Their timezone only changes the conversion. Overlapping ranges are combined in the output. The calendar opens to the current week in your timezone.</p><p>Your selections stay in this browser. Conversion uses your browser’s timezone database.</p></details>
     </aside>
@@ -53,5 +54,5 @@
   </div></details>
   <footer><span id="selection-summary">0 ranges selected</span><details class="data-credits"><summary>Map &amp; city data</summary><p>Timezone boundaries: <a href="https://github.com/evansiroky/timezone-boundary-builder">Timezone Boundary Builder</a> (2026e), © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors, ODbL</a>. Coastlines: <a href="https://www.naturalearthdata.com/">Natural Earth</a>, public domain. Cities: <a href="https://www.geonames.org/">GeoNames</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Boundaries simplified for this map. Adaptive cylindrical projection; colors show current UTC offsets.</p></details></footer>
 </main>
-<script src="time.js?v=20261021-city-restore"></script><script src="map-data.js"></script><script src="cities.js"></script><script src="app.js?v=20261021-city-restore"></script><script src="settings.js?v=20261021-city-restore"></script><script src="projection.js"></script><script src="vendor/d3-array.min.js"></script><script src="vendor/d3-geo.min.js"></script><script src="focus-projection.js?v=20261021-city-restore"></script><script src="focus-map.js?v=20261021-city-restore"></script><script src="map.js?v=20261021-city-restore"></script>
+<script src="time.js?v=20261021-copy-my"></script><script src="map-data.js"></script><script src="cities.js"></script><script src="app.js?v=20261021-copy-my"></script><script src="settings.js?v=20261021-copy-my"></script><script src="projection.js"></script><script src="vendor/d3-array.min.js"></script><script src="vendor/d3-geo.min.js"></script><script src="focus-projection.js?v=20261021-copy-my"></script><script src="focus-map.js?v=20261021-copy-my"></script><script src="map.js?v=20261021-copy-my"></script>
 </body></html>

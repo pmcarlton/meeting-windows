@@ -59,3 +59,9 @@ body{min-width:1100px}main{max-width:1440px;padding:24px 32px 20px}.app-header{m
 #source-away-enabled{accent-color:#965126}#target-away-enabled{accent-color:#276c51}
 
 .selected-map-pins .selected-city-label{font-size:13px;letter-spacing:0}
+
+.copy-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}
+.copy-buttons button{width:100%;margin:0;padding:11px 6px;font-size:12px;font-weight:550}
+.copy-buttons #copy{background:#155d47}.copy-buttons #copy:hover{background:#104936}
+.copy-my{color:#965126;border-color:#d5a47d;background:#fff}.copy-my:hover{background:#fff3e8}
+.copy-fallback label{display:block;font-size:11px;margin:4px 0 6px}.copy-fallback textarea{min-height:110px;font-size:12px;padding:10px}

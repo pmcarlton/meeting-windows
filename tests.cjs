@@ -76,4 +76,10 @@ const sandbox={module:{exports:{}},Intl:{DateTimeFormat:class extends Intl.DateT
 }}};
 vm.runInNewContext(fs.readFileSync(require.resolve('./time.js'),'utf8'),sandbox);
 assert.equal(sandbox.module.exports.describe(ukSeparate,'Europe/London'),T.describe(ukSeparate,'Europe/London'));
+// The same normalized windows can be shared in the sender's local timezone.
+assert.equal(T.describe(ukSeparate,'Asia/Tokyo',{possessive:'my'}),'my (Japan Standard Time) Saturday Oct. 24, 4:30pm to 5pm; or my Sunday Oct. 25, 4:30pm to 5pm [2026]');
+assert.equal(T.describe(ukSeparate,'Asia/Tokyo',{possessive:'my',list:true,h24:true}),'• my (Japan Standard Time) Saturday Oct. 24, 16:30 to 17:00\n• my Sunday Oct. 25, 16:30 to 17:00 [2026]');
+assert.equal(T.describe(repeatedRange,'America/Los_Angeles',{possessive:'my'}),'my (Pacific Daylight Time) Sunday Nov. 1, 1:15am to (Pacific Standard Time) 1:45am [2026]');
+assert.equal(T.describe(example,'America/Los_Angeles',{possessive:'my'}),'my (Pacific Daylight Time) Tuesday Oct. 20, 10pm to Oct. 21, 1am; or my Thursday Oct. 22, 10pm to Oct. 23, 12am [2026]');
+assert.equal(T.describe([],'Asia/Tokyo',{possessive:'my'}),'');
 console.log('Passed: cross-date conversion, skipped/repeated hours, 30-minute DST, quarter-hour offsets, skipped date, overlap merging, formatting, invalid input.');

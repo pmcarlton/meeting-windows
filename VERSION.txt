@@ -1,2 +1,2 @@
 Updated: 2026-10-21
-Restore saved city coordinates and recover unique older city labels; show selected city names in all map modes; clear hover captions with their highlights.
+Added Copy my times beside Copy their times, sharing sentence/list and clock-format settings with correctly labeled clipboard fallback.
